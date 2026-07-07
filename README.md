@@ -27,6 +27,14 @@ http://localhost:3002
 
 Gunakan `.env.example` sebagai template konfigurasi lokal.
 
+Minimum environment variable:
+
+```env
+DATABASE_URL="postgresql://USER:PASSWORD@HOST-pooler.REGION.aws.neon.tech/neondb?sslmode=require&connect_timeout=15"
+DIRECT_URL="postgresql://USER:PASSWORD@HOST.REGION.aws.neon.tech/neondb?sslmode=require&connect_timeout=15"
+SESSION_SECRET="replace-with-a-long-random-secret"
+```
+
 ## Script
 
 ```bash
@@ -64,7 +72,7 @@ Folder generated/local seperti `.next/`, `node_modules/`, `db/`, `docs/archive/`
 
 ## Catatan Database
 
-MVP lokal memakai SQLite agar mudah dijalankan tanpa biaya. Untuk deployment produksi, gunakan managed PostgreSQL seperti Neon/Supabase/Railway Postgres dan ubah Prisma datasource sesuai panduan deployment.
+MVP memakai PostgreSQL melalui Neon. Gunakan `DATABASE_URL` pooled untuk runtime aplikasi dan `DIRECT_URL` direct untuk operasi Prisma seperti `db push` atau migration.
 
 ## Status Verifikasi Terakhir
 

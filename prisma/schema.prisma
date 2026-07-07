@@ -6,12 +6,12 @@ generator client {
 }
 
 datasource db {
-  // Untuk production deployment, set DATABASE_URL ke PostgreSQL:
-  //   provider = "postgresql"
-  //   url      = env("DATABASE_URL")  // postgresql://user:pass@host:5432/finbest
-  // Schema ini sudah PostgreSQL-ready (tidak ada SQLite-specific types).
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  // Neon/PostgreSQL production setup:
+  // - DATABASE_URL uses the pooled Neon host (-pooler) for serverless runtime.
+  // - DIRECT_URL uses the direct Neon host for Prisma schema operations.
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ============================================================

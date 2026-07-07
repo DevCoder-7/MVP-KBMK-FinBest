@@ -8,10 +8,12 @@ npx prisma generate
 npx next dev --webpack -p 3002
 ```
 
-Local demo uses SQLite:
+Local and production now use Neon PostgreSQL:
 
 ```env
-DATABASE_URL="file:./db/custom.db"
+DATABASE_URL="postgresql://USER:PASSWORD@HOST-pooler.REGION.aws.neon.tech/neondb?sslmode=require&connect_timeout=15"
+DIRECT_URL="postgresql://USER:PASSWORD@HOST.REGION.aws.neon.tech/neondb?sslmode=require&connect_timeout=15"
+SESSION_SECRET="replace-with-a-long-random-secret"
 ```
 
 ## Vercel
@@ -32,31 +34,48 @@ npm run build
 
 ## Neon Database
 
-The current MVP is still configured for SQLite in `prisma/schema.prisma`:
+The MVP is configured for Neon/PostgreSQL in `prisma/schema.prisma`:
 
 ```prisma
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 ```
 
-For production Neon, change the provider to PostgreSQL before deployment:
+Use two Neon connection strings:
 
-```prisma
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-```
+- `DATABASE_URL`: pooled connection string, hostname contains `-pooler`.
+- `DIRECT_URL`: direct connection string, hostname does not contain `-pooler`.
 
-Then set Vercel environment variable:
+Set these Vercel environment variables for Production and Preview:
 
 ```env
-DATABASE_URL="postgresql://USER:PASSWORD@HOST.neon.tech/DB?sslmode=require"
+DATABASE_URL="postgresql://USER:PASSWORD@HOST-pooler.REGION.aws.neon.tech/neondb?sslmode=require&connect_timeout=15"
+DIRECT_URL="postgresql://USER:PASSWORD@HOST.REGION.aws.neon.tech/neondb?sslmode=require&connect_timeout=15"
+SESSION_SECRET="replace-with-a-long-random-secret"
+MARKET_DATA_PROVIDER="yahoo"
+MARKET_CACHE_TTL_MS="30000"
+MARKET_FETCH_TIMEOUT_MS="4000"
 ```
 
-After switching provider, run a migration against Neon:
+Push the schema to Neon before or after deploying:
+
+```bash
+npx prisma generate
+npx prisma db push
+```
+
+Seed data is optional, but recommended for demo content:
+
+```bash
+npx tsx prisma/seed.ts
+npx tsx prisma/seed-account.ts
+npx tsx prisma/seed-knowledge.ts
+```
+
+For a migration-based production workflow:
 
 ```bash
 npx prisma migrate dev --name init-postgres
