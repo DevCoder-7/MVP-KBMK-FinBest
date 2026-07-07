@@ -1,0 +1,229 @@
+// FinBest AI - Prisma Schema
+// Non-discretionary AI-based investment management application
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  // Untuk production deployment, set DATABASE_URL ke PostgreSQL:
+  //   provider = "postgresql"
+  //   url      = env("DATABASE_URL")  // postgresql://user:pass@host:5432/finbest
+  // Schema ini sudah PostgreSQL-ready (tidak ada SQLite-specific types).
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// MODUL 1: Manajemen Profil & Rencana Investasi
+// ============================================================
+
+model UserProfile {
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  riskScore       Int      @default(50) // 1-100
+  riskProfile     String   @default("Moderat") // Konservatif, Moderat Konservatif, Moderat, Moderat Agresif, Agresif
+  horizonYears    Int      @default(10)
+  annualIncome    Float    @default(0)
+  tier            String   @default("FREE") // FREE | PRO
+  tierExpiresAt   DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  goals           Goal[]
+  holdings        Holding[]
+  transactions    Transaction[]
+  tractionChecks  TractionCheck[]
+  chatSessions    ChatSession[]
+  behaviorMetrics BehaviorMetric[]
+  insights        Insight[]
+  account         Account?
+}
+
+// ============================================================
+// AUTENTIKASI
+// ============================================================
+
+model Account {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  password     String   // hashed with scrypt
+  userId       String   @unique
+  createdAt    DateTime @default(now())
+
+  user         UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Goal {
+  id              String   @id @default(cuid())
+  userId          String
+  title           String
+  targetAmount    Float
+  currentAmount   Float    @default(0)
+  horizonYears    Int
+  monthlyContribution Float @default(0)
+  priority        String   @default("Sedang") // Rendah, Sedang, Tinggi
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TargetAllocation {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  saham       Float    @default(30) // percentage
+  obligasi    Float    @default(40)
+  reksadana   Float    @default(20)
+  kas         Float    @default(10)
+  emas        Float    @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================================
+// PORTOFOLIO & INSTRUMEN
+// ============================================================
+
+model Asset {
+  id          String   @id @default(cuid())
+  ticker      String   @unique
+  name        String
+  type        String   // SAHAM, OBLIGASI, REKSADANA, KAS, EMAS
+  sector      String?
+  price       Float    @default(0)
+  prevPrice   Float    @default(0)
+  price5dAgo  Float    @default(0)
+  volatility30d Float  @default(0) // percentage
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  holdings    Holding[]
+  transactions Transaction[]
+}
+
+model Holding {
+  id          String   @id @default(cuid())
+  userId      String
+  assetId     String
+  quantity    Float
+  avgCost     Float
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset       Asset       @relation(fields: [assetId], references: [id])
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  userId      String
+  assetId     String
+  side        String   // BUY / SELL
+  quantity    Float
+  price       Float
+  status      String   @default("EXECUTED") // INTENDED, CONFIRMED, EXECUTED, CANCELLED, COOLING_OFF
+  executedAt  DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  asset       Asset       @relation(fields: [assetId], references: [id])
+  tractionCheck TractionCheck?
+}
+
+// ============================================================
+// MODUL 2: TRACTION
+// ============================================================
+
+model TractionCheck {
+  id              String   @id @default(cuid())
+  userId          String
+  transactionId   String?  @unique
+  assetId         String
+  side            String
+  quantity        Float
+  price           Float
+  tractionScore   Int      // 0-100
+  riskLevel       String   // GREEN, YELLOW, ORANGE, RED
+  coolingOffMs    Int      @default(0)
+  rulesTriggered  String   @default("[]") // JSON array of rule names
+  reflections     String   @default("[]") // JSON array of reflection Q&A
+  confirmed       Boolean  @default(false)
+  overridden      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  confirmedAt     DateTime?
+
+  user            UserProfile  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transaction     Transaction? @relation(fields: [transactionId], references: [id])
+}
+
+// ============================================================
+// MODUL 3: AI RAG
+// ============================================================
+
+model ChatSession {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String   @default("Sesi Baru")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        UserProfile    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages    ChatMessage[]
+}
+
+model ChatMessage {
+  id          String   @id @default(cuid())
+  sessionId   String
+  role        String   // user / assistant
+  content     String
+  citations   String   @default("[]") // JSON array
+  confidence  Float    @default(0) // 0-1
+  intent      String?
+  feedback    String?  // up / down
+  feedbackNote String?
+  createdAt   DateTime @default(now())
+
+  session     ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model KnowledgeDocument {
+  id          String   @id @default(cuid())
+  title       String
+  category    String   // prospectus, financials, regulations, education
+  source      String
+  content     String
+  summary     String
+  publishedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+}
+
+// ============================================================
+// MODUL 4: DASHBOARD & PELAPORAN
+// ============================================================
+
+model BehaviorMetric {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime
+  tractionScore Int
+  transactionCount Int @default(0)
+  impulsiveCount Int  @default(0)
+  createdAt   DateTime @default(now())
+
+  user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Insight {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // ALLOCATION, BEHAVIOR, PERFORMANCE, RISK
+  title       String
+  description String
+  severity    String   @default("info") // info, warning, critical
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user        UserProfile @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
