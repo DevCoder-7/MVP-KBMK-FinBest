@@ -1323,21 +1323,28 @@ function RiskProfileTab({
                     <div
                       key={row.label}
                       className={cn(
-                        'flex items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors',
+                        'flex flex-col gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors sm:flex-row sm:items-center sm:justify-between',
                         isActive
-                          ? cn(cc.border, cc.bg.replace('bg-', 'bg-').replace('500', '500/10'))
+                          ? cn(cc.bg, 'border-transparent text-primary-foreground shadow-sm')
                           : 'border-border bg-background/40'
                       )}
                     >
                       <div className="flex items-center gap-2">
                         {isActive && (
-                          <CheckCircle2 className={cn('h-4 w-4', cc.text)} />
+                          <CheckCircle2 className="h-4 w-4 text-primary-foreground" />
                         )}
-                        <span className={cn(isActive && cc.text, 'font-medium')}>
+                        <span className="font-medium">
                           {row.label}
                         </span>
                       </div>
-                      <div className="flex items-center gap-3 text-muted-foreground">
+                      <div
+                        className={cn(
+                          'flex flex-wrap items-center gap-x-3 gap-y-1',
+                          isActive
+                            ? 'text-primary-foreground/95'
+                            : 'text-muted-foreground'
+                        )}
+                      >
                         <span>Skor {row.range}</span>
                         <span>•</span>
                         <span>Maks saham {row.max}%</span>
