@@ -3,6 +3,7 @@ type AssetLike = {
   type: string
   price: number
   prevPrice: number
+  price5dAgo?: number
 }
 
 export type MarketProvider = 'yahoo' | 'twelvedata' | 'fallback'
@@ -13,6 +14,7 @@ export interface MarketQuote {
   provider: MarketProvider
   price: number
   previousClose: number
+  price5dAgo?: number
   change: number
   changePct: number
   currency: string
@@ -108,7 +110,7 @@ async function getYahooQuote(asset: AssetLike): Promise<MarketQuote | null> {
   const symbol = toYahooSymbol(asset.ticker)
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
     symbol
-  )}?range=1d&interval=1m`
+  )}?range=5d&interval=1d`
   const data = await fetchJsonWithTimeout(url)
   const result = data?.chart?.result?.[0]
   const meta = result?.meta
@@ -120,6 +122,8 @@ async function getYahooQuote(asset: AssetLike): Promise<MarketQuote | null> {
     : []
   const timestamps = Array.isArray(result?.timestamp) ? result.timestamp : []
   const latestClose = closes.length > 0 ? Number(closes[closes.length - 1]) : undefined
+  const price5dAgo =
+    closes.length > 1 ? Number(closes[0]) : numberOrUndefined(meta.chartPreviousClose)
   const price =
     numberOrUndefined(meta.regularMarketPrice) ??
     latestClose ??
@@ -147,6 +151,7 @@ async function getYahooQuote(asset: AssetLike): Promise<MarketQuote | null> {
     provider: 'yahoo',
     price,
     previousClose,
+    price5dAgo,
     change,
     changePct,
     currency: meta.currency ?? 'IDR',
@@ -265,6 +270,7 @@ export function livePriceFor(asset: AssetLike, snapshot: MarketSnapshot) {
   return {
     price: quote?.price ?? asset.price,
     prevPrice: quote?.previousClose ?? asset.prevPrice,
+    price5dAgo: quote?.price5dAgo ?? asset.price5dAgo ?? asset.price,
     quote: quote ?? null,
   }
 }

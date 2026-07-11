@@ -27,15 +27,15 @@ export async function GET() {
           sector: a.sector,
           price: live.price,
           prevPrice: live.prevPrice,
-          price5dAgo: a.price5dAgo,
+          price5dAgo: live.price5dAgo,
           volatility30d: a.volatility30d,
           dayChangePct:
             live.prevPrice > 0
               ? ((live.price - live.prevPrice) / live.prevPrice) * 100
               : 0,
           surge5dPct:
-            a.price5dAgo > 0
-              ? ((live.price - a.price5dAgo) / a.price5dAgo) * 100
+            live.price5dAgo > 0
+              ? ((live.price - live.price5dAgo) / live.price5dAgo) * 100
               : 0,
           marketQuote: live.quote,
         }

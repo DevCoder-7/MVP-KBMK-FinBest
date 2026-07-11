@@ -40,6 +40,7 @@ export async function GET() {
           ...h.asset,
           price: live.price,
           prevPrice: live.prevPrice,
+          price5dAgo: live.price5dAgo,
           marketQuote: live.quote,
         },
       }

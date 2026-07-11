@@ -19,6 +19,7 @@ import {
   calcSectorConcentration,
   tractionRiskLevel,
 } from '@/lib/utils-finance'
+import { getLiveMarketSnapshot, livePriceFor } from '@/lib/market-data'
 
 // ---- Tunable policy thresholds (PRD Modul 2) -------------------------------
 const RULES = {
@@ -89,13 +90,37 @@ export async function POST(req: NextRequest) {
       }),
     ])
 
-    const transactionValue = quantity * asset.price
-    const currentNAV = calcNAV(holdings)
+    const marketData = await getLiveMarketSnapshot([
+      asset,
+      ...holdings.map((h) => h.asset),
+    ])
+    const liveSelected = livePriceFor(asset, marketData)
+    const liveAsset = {
+      ...asset,
+      price: liveSelected.price,
+      prevPrice: liveSelected.prevPrice,
+      price5dAgo: liveSelected.price5dAgo,
+    }
+    const liveHoldings = holdings.map((h) => {
+      const live = livePriceFor(h.asset, marketData)
+      return {
+        ...h,
+        asset: {
+          ...h.asset,
+          price: live.price,
+          prevPrice: live.prevPrice,
+          price5dAgo: live.price5dAgo,
+        },
+      }
+    })
+
+    const transactionValue = quantity * liveAsset.price
+    const currentNAV = calcNAV(liveHoldings)
 
     // ---- Project new holdings state if trade executes ----------------------
-    const projectedHoldings = holdings.map((h) => ({ ...h }))
+    const projectedHoldings = liveHoldings.map((h) => ({ ...h }))
     const existingIdx = projectedHoldings.findIndex(
-      (h) => h.assetId === asset.id
+      (h) => h.assetId === liveAsset.id
     )
     if (side === 'BUY') {
       if (existingIdx >= 0) {
@@ -105,12 +130,12 @@ export async function POST(req: NextRequest) {
         projectedHoldings.push({
           id: 'tmp',
           userId: user.id,
-          assetId: asset.id,
+          assetId: liveAsset.id,
           quantity,
-          avgCost: asset.price,
+          avgCost: liveAsset.price,
           createdAt: new Date(),
           updatedAt: new Date(),
-          asset,
+          asset: liveAsset,
         })
       }
     } else {
@@ -187,11 +212,11 @@ export async function POST(req: NextRequest) {
     // 3. Single position limit (only meaningful for BUY)
     if (side === 'BUY') {
       const positionIdx = projectedHoldings.findIndex(
-        (h) => h.assetId === asset.id
+        (h) => h.assetId === liveAsset.id
       )
       const positionValue =
         positionIdx >= 0
-          ? projectedHoldings[positionIdx].quantity * asset.price
+          ? projectedHoldings[positionIdx].quantity * liveAsset.price
           : 0
       const positionPct = newNAV > 0 ? (positionValue / newNAV) * 100 : 0
       if (positionPct > RULES.SINGLE_POSITION_LIMIT) {
@@ -208,12 +233,12 @@ export async function POST(req: NextRequest) {
     // 4. 5-day price surge (impulsive flag) — only for BUY
     if (
       side === 'BUY' &&
-      asset.price5dAgo > 0 &&
-      (asset.price - asset.price5dAgo) / asset.price5dAgo >
+      liveAsset.price5dAgo > 0 &&
+      (liveAsset.price - liveAsset.price5dAgo) / liveAsset.price5dAgo >
         RULES.PRICE_SURGE_5D
     ) {
       const surgePct =
-        ((asset.price - asset.price5dAgo) / asset.price5dAgo) * 100
+        ((liveAsset.price - liveAsset.price5dAgo) / liveAsset.price5dAgo) * 100
       rulesTriggered.push({
         rule: 'Lonjakan Harga 5 Hari (Impulsif)',
         detail: `Harga ${asset.ticker} naik ${surgePct.toFixed(
@@ -300,10 +325,10 @@ export async function POST(req: NextRequest) {
     const check = await db.tractionCheck.create({
       data: {
         userId: user.id,
-        assetId: asset.id,
+        assetId: liveAsset.id,
         side,
         quantity,
-        price: asset.price,
+        price: liveAsset.price,
         tractionScore,
         riskLevel: level,
         coolingOffMs,
@@ -332,6 +357,7 @@ export async function POST(req: NextRequest) {
       newNAV,
       newAllocation,
       newSectorConcentration,
+      marketData,
       warnings,
     })
   } catch (error) {

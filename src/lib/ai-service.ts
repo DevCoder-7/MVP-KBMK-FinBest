@@ -26,7 +26,7 @@ import {
   calcSectorConcentration,
 } from './utils-finance'
 import { getProvider, getTierLimits, type AIProvider } from './ai-provider'
-import { getLiveMarketSnapshot } from './market-data'
+import { getLiveMarketSnapshot, livePriceFor } from './market-data'
 
 let zaiClient: any = null
 
@@ -350,12 +350,14 @@ export async function analyzeStock(
   const sources: StockAnalysis['sources'] = []
 
   if (asset) {
+    const snapshot = await getLiveMarketSnapshot([asset])
+    const live = livePriceFor(asset, snapshot)
     const fiveDayChange =
-      asset.price5dAgo > 0
-        ? ((asset.price - asset.price5dAgo) / asset.price5dAgo) * 100
+      live.price5dAgo > 0
+        ? ((live.price - live.price5dAgo) / live.price5dAgo) * 100
         : 0
     analysis.push(
-      `Data tercatat: ${asset.name} (${asset.ticker}), sektor ${asset.sector}, harga Rp ${asset.price.toLocaleString('id-ID')}, volatilitas 30 hari ${asset.volatility30d}%, perubahan 5 hari ${fiveDayChange > 0 ? '+' : ''}${fiveDayChange.toFixed(2)}%.`
+      `Data tercatat: ${asset.name} (${asset.ticker}), sektor ${asset.sector}, harga Rp ${live.price.toLocaleString('id-ID')}, volatilitas 30 hari ${asset.volatility30d}%, perubahan 5 hari ${fiveDayChange > 0 ? '+' : ''}${fiveDayChange.toFixed(2)}%.`
     )
   }
 
