@@ -108,10 +108,17 @@ function numberOrUndefined(value: unknown) {
 
 async function getYahooQuote(asset: AssetLike): Promise<MarketQuote | null> {
   const symbol = toYahooSymbol(asset.ticker)
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+  const intradayUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
+    symbol
+  )}?range=1d&interval=1m`
+  const historyUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
     symbol
   )}?range=5d&interval=1d`
-  const data = await fetchJsonWithTimeout(url)
+  const [intradayData, historyData] = await Promise.all([
+    fetchJsonWithTimeout(intradayUrl),
+    fetchJsonWithTimeout(historyUrl),
+  ])
+  const data = intradayData ?? historyData
   const result = data?.chart?.result?.[0]
   const meta = result?.meta
   if (!meta) return null
@@ -122,8 +129,15 @@ async function getYahooQuote(asset: AssetLike): Promise<MarketQuote | null> {
     : []
   const timestamps = Array.isArray(result?.timestamp) ? result.timestamp : []
   const latestClose = closes.length > 0 ? Number(closes[closes.length - 1]) : undefined
+  const historyResult = historyData?.chart?.result?.[0]
+  const historyQuote = historyResult?.indicators?.quote?.[0]
+  const historyCloses = Array.isArray(historyQuote?.close)
+    ? historyQuote.close.filter((value: unknown) => Number.isFinite(Number(value)))
+    : []
   const price5dAgo =
-    closes.length > 1 ? Number(closes[0]) : numberOrUndefined(meta.chartPreviousClose)
+    historyCloses.length > 1
+      ? Number(historyCloses[0])
+      : numberOrUndefined(meta.chartPreviousClose)
   const price =
     numberOrUndefined(meta.regularMarketPrice) ??
     latestClose ??
