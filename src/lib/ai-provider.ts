@@ -1,11 +1,12 @@
 /**
  * FinBest AI - Dual Provider Abstraction
  *
- * Free Tier: Qwen/GLM via z-ai-web-dev-sdk (GLM-4.6)
- * Pro Tier:  Gemini via Google Generative AI REST API (gemini-2.0-flash)
+ * Primary production provider: Gemini REST when GEMINI_API_KEY is configured.
+ * Optional local provider: Qwen/GLM via z-ai-web-dev-sdk and .z-ai-config.
  *
- * Provider selection based on user's subscription tier.
- * If Gemini API key not configured, Pro tier falls back to GLM with higher limits.
+ * Provider selection is environment-aware so a FREE demo account can still use
+ * the production Gemini provider on Vercel. Without credentials, callers fall
+ * back to the deterministic, non-transactional response in ai-service.ts.
  */
 
 import ZAI from 'z-ai-web-dev-sdk'
@@ -122,6 +123,14 @@ export const GeminiProvider: AIProvider = {
  * - PRO: Gemini 2.0 Flash (higher limits, more capable) or GLM with Pro settings
  */
 export function getProvider(tier: 'FREE' | 'PRO' = 'FREE'): AIProvider {
+  const configuredProvider = process.env.AI_PROVIDER?.trim().toLowerCase()
+  if (configuredProvider === 'glm') return GLMProvider
+  if (configuredProvider === 'gemini') return GeminiProvider
+
+  // Vercel cannot rely on a developer-machine .z-ai-config file. Prefer the
+  // credentialed REST provider for every tier whenever it is available.
+  if (GEMINI_API_KEY) return GeminiProvider
+
   if (tier === 'PRO') {
     return GeminiProvider
   }

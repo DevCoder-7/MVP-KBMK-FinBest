@@ -25,7 +25,7 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: "FinBest AI — Asisten Manajemen Investasi Berbasis AI",
   description:
-    "FinBest AI: asisten investasi non-diskrisioner dengan deteksi bias kognitif, Friction-by-Design, edukasi adaptif, dan panduan ESG. Didukung RAG + data IDX real-time.",
+    "FinBest AI: asisten investasi non-diskrisioner dengan deteksi bias kognitif, Friction-by-Design, edukasi adaptif, dan panduan ESG. Didukung RAG + data pasar IDX bertimestamp.",
   keywords: [
     "FinBest AI",
     "investasi",

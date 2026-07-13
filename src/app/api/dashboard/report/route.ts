@@ -8,6 +8,7 @@ import {
   formatPct,
 } from '@/lib/utils-finance'
 import { createSimplePdf } from '@/lib/simple-pdf'
+import { getLiveMarketSnapshot, livePriceFor } from '@/lib/market-data'
 
 /**
  * GET /api/dashboard/report?month=YYYY-MM&userId=...
@@ -92,14 +93,27 @@ export async function GET(req: NextRequest) {
         }),
       ])
 
-    // Calculate NAV summary
-    const currentNav = calcNAV(holdings)
-    const cost = holdings.reduce((s, h) => s + h.quantity * h.avgCost, 0)
+    const marketData = await getLiveMarketSnapshot(holdings.map((h) => h.asset))
+    const liveHoldings = holdings.map((holding) => {
+      const live = livePriceFor(holding.asset, marketData)
+      return {
+        ...holding,
+        asset: {
+          ...holding.asset,
+          price: live.price,
+          prevPrice: live.prevPrice,
+        },
+      }
+    })
+
+    // Calculate NAV summary from the same canonical market snapshot as the UI.
+    const currentNav = calcNAV(liveHoldings)
+    const cost = liveHoldings.reduce((s, h) => s + h.quantity * h.avgCost, 0)
     const totalPnl = currentNav - cost
     const totalPnlPct = cost > 0 ? (totalPnl / cost) * 100 : 0
 
     // Compute per-position P&L %
-    const positionPerf = holdings
+    const positionPerf = liveHoldings
       .map((h) => {
         const mv = h.quantity * h.asset.price
         const c = h.quantity * h.avgCost

@@ -135,6 +135,12 @@ interface StockAnalysis {
   name?: string
   currentPrice?: number
   priceChange?: number
+  marketQuote?: {
+    provider: 'yahoo' | 'twelvedata' | 'fallback'
+    asOf: string
+    sourceUrl: string
+    delayMinutes?: number
+  } | null
   fundamentalData?: FundamentalData
   news?: { title: string; snippet: string; url: string; date?: string }[]
   analysis: string
@@ -202,7 +208,7 @@ const INTENT_META: Record<
   },
   analitik: {
     label: 'Analitik',
-    cls: 'border-gold/40 bg-gold/10 text-gold-foreground',
+    cls: 'border-warning/40 bg-warning/10 text-warning',
   },
   opini: {
     label: 'Opini',
@@ -568,6 +574,11 @@ function StockAnalysisCard({ analysis }: { analysis: StockAnalysis }) {
                   {analysis.priceChange.toFixed(2)}%
                 </div>
               )}
+              <div className="mt-0.5 max-w-36 text-[10px] leading-tight text-muted-foreground">
+                {analysis.marketQuote
+                  ? `${analysis.marketQuote.provider === 'yahoo' ? 'Yahoo Finance' : 'Twelve Data'} · ${new Date(analysis.marketQuote.asOf).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}${analysis.marketQuote.delayMinutes ? ` · tertunda ~${analysis.marketQuote.delayMinutes} mnt` : ''}`
+                  : 'Data internal/fallback'}
+              </div>
             </div>
           )}
         </div>
@@ -741,7 +752,7 @@ function CitationsList({
                     {c.type === 'market' ? (
                       <Badge
                         variant="outline"
-                        className="h-3.5 px-1 text-[9px] font-medium text-gold-foreground border-gold/40 bg-gold/10"
+                        className="h-3.5 border-warning/40 bg-warning/10 px-1 text-[9px] font-medium text-warning"
                       >
                         Web
                       </Badge>
@@ -1142,7 +1153,7 @@ function EmptyState({
       <p className="mt-2 max-w-md text-center text-sm text-muted-foreground">
         Mentor investasi 24/7 Anda. Saya dapat menganalisis saham, mendeteksi
         bias kognitif, dan memberi edukasi investasi berbasis data pasar
-        real-time.
+        terbaru dengan timestamp yang transparan.
       </p>
 
       <div className="mt-8 grid w-full grid-cols-1 gap-3 sm:grid-cols-2">

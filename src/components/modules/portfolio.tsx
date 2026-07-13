@@ -136,6 +136,7 @@ interface PortfolioData {
     requested: number
     resolved: number
     updatedAt: string
+    delayMinutes?: number
     note?: string
   }
 }
@@ -282,11 +283,14 @@ export default function PortfolioModule() {
             >
               <Activity className="size-3" />
               {data.marketData?.resolved
-                ? `Live market ${data.marketData.resolved}/${data.marketData.requested}`
+                ? `Data pasar ${data.marketData.resolved}/${data.marketData.requested}`
                 : 'Market fallback'}
             </Badge>
             {data.marketData?.updatedAt ? (
               <span className="text-[11px] text-muted-foreground">
+                {data.marketData.delayMinutes
+                  ? `Yahoo/IDX tertunda ~${data.marketData.delayMinutes} menit · `
+                  : ''}
                 Update {new Date(data.marketData.updatedAt).toLocaleTimeString('id-ID', {
                   hour: '2-digit',
                   minute: '2-digit',

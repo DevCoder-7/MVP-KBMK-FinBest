@@ -55,10 +55,19 @@ Set these Vercel environment variables for Production and Preview:
 DATABASE_URL="postgresql://USER:PASSWORD@HOST-pooler.REGION.aws.neon.tech/neondb?sslmode=require&connect_timeout=15"
 DIRECT_URL="postgresql://USER:PASSWORD@HOST.REGION.aws.neon.tech/neondb?sslmode=require&connect_timeout=15"
 SESSION_SECRET="replace-with-a-long-random-secret"
+AI_PROVIDER="gemini"
+GEMINI_API_KEY="your_gemini_api_key"
+GEMINI_MODEL="gemini-2.0-flash"
 MARKET_DATA_PROVIDER="yahoo"
 MARKET_CACHE_TTL_MS="30000"
 MARKET_FETCH_TIMEOUT_MS="4000"
 ```
+
+`GEMINI_API_KEY` diperlukan agar AI Mentor memakai model generatif di Vercel.
+Tanpa kredensial ini, FinBest tetap menyediakan data pasar dan RAG dalam mode
+analisis terbatas yang deterministik. `z-ai-web-dev-sdk` hanya cocok untuk
+lingkungan yang memiliki file `.z-ai-config`, sehingga tidak dijadikan default
+produksi.
 
 Push the schema to Neon before or after deploying:
 

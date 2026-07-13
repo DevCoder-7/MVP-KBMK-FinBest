@@ -33,6 +33,9 @@ Minimum environment variable:
 DATABASE_URL="postgresql://USER:PASSWORD@HOST-pooler.REGION.aws.neon.tech/neondb?sslmode=require&connect_timeout=15"
 DIRECT_URL="postgresql://USER:PASSWORD@HOST.REGION.aws.neon.tech/neondb?sslmode=require&connect_timeout=15"
 SESSION_SECRET="replace-with-a-long-random-secret"
+AI_PROVIDER="gemini"
+GEMINI_API_KEY="your_gemini_api_key"
+GEMINI_MODEL="gemini-2.0-flash"
 ```
 
 ## Script

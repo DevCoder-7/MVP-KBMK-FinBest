@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { getDefaultUser } from '@/lib/api-helpers'
 import { createSimplePdf } from '@/lib/simple-pdf'
+import { getLiveMarketSnapshot, livePriceFor } from '@/lib/market-data'
 
 /**
  * GET /api/dashboard/export?format=pdf|csv
@@ -67,6 +68,18 @@ export async function GET(req: NextRequest) {
     ])
 
     const exportTimestamp = new Date().toISOString()
+    const marketData = await getLiveMarketSnapshot(holdings.map((h) => h.asset))
+    const liveHoldings = holdings.map((holding) => {
+      const live = livePriceFor(holding.asset, marketData)
+      return {
+        ...holding,
+        asset: {
+          ...holding.asset,
+          price: live.price,
+          prevPrice: live.prevPrice,
+        },
+      }
+    })
 
     // Build asset lookup (TractionCheck only has assetId, no relation)
     const assetMap = new Map(assets.map((a) => [a.id, a]))
@@ -85,7 +98,7 @@ export async function GET(req: NextRequest) {
       rows.push(
         'TICKER,NAME,TYPE,SECTOR,QUANTITY,AVG_COST,CURRENT_PRICE,MARKET_VALUE,COST_BASIS,PNL,PNL_PCT'
       )
-      for (const h of holdings) {
+      for (const h of liveHoldings) {
         const mv = h.quantity * h.asset.price
         const cost = h.quantity * h.avgCost
         const pnl = mv - cost
@@ -241,7 +254,7 @@ export async function GET(req: NextRequest) {
             updatedAt: targetAllocation.updatedAt,
           }
         : null,
-      holdings: holdings.map((h) => ({
+      holdings: liveHoldings.map((h) => ({
         id: h.id,
         asset: {
           ticker: h.asset.ticker,

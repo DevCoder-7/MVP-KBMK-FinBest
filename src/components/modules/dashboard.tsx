@@ -147,6 +147,7 @@ interface DashboardData {
     requested: number
     resolved: number
     updatedAt: string
+    delayMinutes?: number
     note?: string
   }
 }
@@ -1687,11 +1688,14 @@ export default function DashboardModule() {
             >
               <Activity className="size-3" />
               {marketData?.resolved
-                ? `Live market ${marketData.resolved}/${marketData.requested}`
+                ? `Data pasar ${marketData.resolved}/${marketData.requested}`
                 : 'Market fallback'}
             </Badge>
             {marketData?.updatedAt ? (
               <span className="text-[11px] text-muted-foreground">
+                {marketData.delayMinutes
+                  ? `Yahoo/IDX tertunda ~${marketData.delayMinutes} menit · `
+                  : ''}
                 Update {new Date(marketData.updatedAt).toLocaleTimeString('id-ID', {
                   hour: '2-digit',
                   minute: '2-digit',

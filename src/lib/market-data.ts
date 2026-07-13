@@ -22,6 +22,8 @@ export interface MarketQuote {
   marketState?: string
   asOf: string
   sourceUrl: string
+  delayMinutes?: number
+  /** Quote berhasil diambil dari provider eksternal; bukan jaminan real-time. */
   isLive: boolean
 }
 
@@ -31,6 +33,7 @@ export interface MarketSnapshot {
   requested: number
   resolved: number
   updatedAt: string
+  delayMinutes?: number
   note?: string
 }
 
@@ -173,6 +176,7 @@ async function getYahooQuote(asset: AssetLike): Promise<MarketQuote | null> {
     marketState: meta.marketState,
     asOf,
     sourceUrl: `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}`,
+    delayMinutes: 10,
     isLive: true,
   }
 }
@@ -267,6 +271,10 @@ export async function getLiveMarketSnapshot(
   }
 
   const providers = new Set(Object.values(quotes).map((quote) => quote.provider))
+  const delayMinutes = Math.max(
+    0,
+    ...Object.values(quotes).map((quote) => quote.delayMinutes ?? 0)
+  )
   return {
     quotes,
     provider:
@@ -278,9 +286,12 @@ export async function getLiveMarketSnapshot(
     requested: quotedAssets.length,
     resolved: Object.keys(quotes).length,
     updatedAt: new Date().toISOString(),
+    delayMinutes: delayMinutes || undefined,
     note:
       Object.keys(quotes).length > 0
-        ? 'Harga live digunakan untuk saham IDX; aset non-saham tetap memakai data NAV/seeded.'
+        ? delayMinutes > 0
+          ? `Data saham IDX dari Yahoo Finance tersedia dengan jeda sekitar ${delayMinutes} menit; aset non-saham tetap memakai data NAV/seeded.`
+          : 'Data harga provider eksternal digunakan untuk saham IDX; aset non-saham tetap memakai data NAV/seeded.'
         : 'Provider market tidak tersedia, memakai data seeded dari database.',
   }
 }

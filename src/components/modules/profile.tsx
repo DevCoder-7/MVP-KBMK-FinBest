@@ -1198,7 +1198,7 @@ function ReassessmentBanner({
           <div className="mt-1.5 flex items-center justify-between">
             <span className="text-muted-foreground">Status:</span>
             {needsReassessment ? (
-              <Badge className="bg-warning text-warning-foreground hover:bg-warning">
+              <Badge className="bg-warning text-white hover:bg-warning dark:text-[#00033d]">
                 Perlu reassessment
               </Badge>
             ) : (
@@ -2035,7 +2035,7 @@ function GoalCard({
               On Track
             </Badge>
           ) : goal.monthlyContribution > 0 ? (
-            <Badge className="bg-warning text-warning-foreground hover:bg-warning">
+            <Badge className="bg-warning text-white hover:bg-warning dark:text-[#00033d]">
               Perlu Top-up
             </Badge>
           ) : (

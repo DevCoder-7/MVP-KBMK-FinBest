@@ -3,12 +3,12 @@
  *
  * Architecture (RAG Layering):
  *   Layer 1: Knowledge Base Retrieval (curated docs - OJK, ESG, behavioral finance, IDX)
- *   Layer 2: Real-time Market Data (web search via z-ai-web-dev-sdk)
+ *   Layer 2: Latest Market Data (web search + provider timestamps)
  *   Layer 3: User Portfolio Context (personalized)
  *   Layer 4: Bias Detection on user query (NLP pattern matching)
  *
  * Tool-Calling: AI can invoke tools to gather information before responding:
- *   - search_market: get real-time market news/data
+ *   - search_market: get the latest available market news/data
  *   - analyze_stock: analyze specific stock ticker
  *   - detect_bias: detect cognitive biases in user's question
  *   - get_learning_path: suggest educational content
@@ -26,7 +26,11 @@ import {
   calcSectorConcentration,
 } from './utils-finance'
 import { getProvider, getTierLimits, type AIProvider } from './ai-provider'
-import { getLiveMarketSnapshot, livePriceFor } from './market-data'
+import {
+  getLiveMarketSnapshot,
+  livePriceFor,
+  type MarketQuote,
+} from './market-data'
 
 let zaiClient: any = null
 
@@ -38,16 +42,16 @@ export async function getZAIClient() {
 }
 
 // ====================== System Prompt (Upgraded) ======================
-export const FINBEST_SYSTEM_PROMPT = `Anda adalah **FinBest AI**, analis investasi AI untuk investor Indonesia. Anda menjawab seperti analis riset pasar modal: tajam, berbasis data, transparan terhadap asumsi, dan berani memberi stance analitis ketika diminta.
+export const FINBEST_SYSTEM_PROMPT = `Anda adalah **FinBest AI**, asisten analisis investasi non-diskrisioner untuk investor Indonesia. Anda membantu pengguna memahami data dan risiko, bukan menentukan atau mengeksekusi keputusan transaksi.
 
 ## IDENTITAS & KAPABILITAS
 - AI investment analyst dengan akses RAG, data portofolio pengguna, dan market search/web search.
-- Ketika input menyebut saham/ticker/rekomendasi BUY/HOLD/SELL, gunakan data pasar terbaru yang tersedia dari tools, berita, knowledge base, dan data aset internal.
+- Ketika input menyebut saham atau ticker, gunakan harga kanonis dari tool analisis saham beserta provider dan timestamp-nya. Jangan mengganti harga tool dengan ingatan model atau angka dari sumber lain.
 - Analisis boleh mencakup fundamental, teknikal, katalis, sentimen berita, valuasi relatif, skenario harga, risk/reward, dan portfolio fit.
 - Output harus mengikuti kebutuhan input pengguna. Jika user minta singkat, jawab singkat. Jika user minta detail, berikan detail penuh tanpa batas paragraf artifisial.
 
 ## PRINSIP UTAMA
-1. **Ikuti input pengguna**: Jika diminta BUY/HOLD/SELL, berikan rekomendasi final BUY/HOLD/SELL/ACCUMULATE/REDUCE lengkap dengan alasan. Jangan menghindar dengan jawaban generik.
+1. **Bantu keputusan, jangan mengambil keputusan**: Jika diminta BUY/HOLD/SELL, jangan memberi perintah atau rekomendasi final. Sajikan fakta, tesis pro/kontra, skenario bersyarat, risiko, dan pertanyaan verifikasi agar keputusan tetap di tangan pengguna.
 2. **Evidence-first**: Jangan mengarang data. Pakai citation inline [1][2] dari knowledge base atau market search untuk klaim faktual, berita, atau data eksternal.
 3. **Research-grade, bukan eksekusi**: Rekomendasi adalah analisis riset. Jangan mengeksekusi transaksi atau mengklaim profit pasti.
 4. **Tegas soal ketidakpastian**: Cantumkan asumsi, kualitas data, downside, katalis, dan apa yang bisa membatalkan tesis.
@@ -56,8 +60,8 @@ export const FINBEST_SYSTEM_PROMPT = `Anda adalah **FinBest AI**, analis investa
 ## FORMAT DEFAULT UNTUK SAHAM
 Jika user bertanya soal saham/ticker atau meminta BUY/HOLD/SELL, gunakan struktur ini kecuali user meminta format lain:
 ### Ringkasan
-- **Rekomendasi final**: BUY / HOLD / SELL / ACCUMULATE / REDUCE
-- **Confidence**: XX%
+- **Status data**: memadai / terbatas, provider, dan waktu data
+- **Confidence analisis**: XX%
 - **Timeframe**: harian / mingguan / 3 bulan / 6 bulan / 12 bulan
 - **Thesis singkat**: 1-3 kalimat
 
@@ -66,10 +70,10 @@ Jika user bertanya soal saham/ticker atau meminta BUY/HOLD/SELL, gunakan struktu
 - Ringkasan berita/market search terbaru
 - Fundamental, teknikal, katalis, sentimen, dan risiko utama
 
-### Rekomendasi
-- Target price/range atau fair value range bila data memadai
-- Entry range, area invalidasi, stop-loss/trailing stop, dan take-profit area bila relevan
-- 3 skenario: Bull / Base / Bear dengan probabilitas
+### Skenario Keputusan
+- 3 skenario bersyarat: Bull / Base / Bear beserta indikator yang perlu diverifikasi
+- Area harga hanya boleh disebut sebagai referensi analitis jika sumber dan metode tersedia; jangan mengarang target, entry, stop-loss, atau take-profit
+- Akhiri dengan checklist keputusan, bukan instruksi transaksi
 
 ### Risiko
 - Risiko data, risiko pasar, risiko emiten/sektor, dan sinyal yang harus dipantau
@@ -102,6 +106,7 @@ export interface StockAnalysis {
   name?: string
   currentPrice?: number
   priceChange?: number
+  marketQuote?: MarketQuote | null
   fundamentalData?: {
     per?: number
     pbv?: number
@@ -258,7 +263,7 @@ export async function retrieveKnowledge(
     }))
 }
 
-// ====================== Tool 2: Market Search (RAG Layer 2 - Real-time) ======================
+// ====================== Tool 2: Market Search (RAG Layer 2 - Latest available) ======================
 async function getYahooFinanceMarketData(
   query: string
 ): Promise<{ title: string; snippet: string; url: string }[]> {
@@ -279,7 +284,7 @@ async function getYahooFinanceMarketData(
 
     return [
       {
-        title: `${quote.provider === 'twelvedata' ? 'Twelve Data' : 'Yahoo Finance'} ${quote.symbol} - data harga pasar`,
+        title: `${quote.provider === 'twelvedata' ? 'Twelve Data' : 'Yahoo Finance'} ${quote.symbol} - data harga pasar${quote.delayMinutes ? ` (tertunda ~${quote.delayMinutes} menit)` : ''}`,
         snippet:
           `${ticker} (${quote.symbol}) terakhir sekitar Rp ${Number(quote.price).toLocaleString('id-ID')}` +
           `, perubahan vs previous close ${quote.changePct >= 0 ? '+' : ''}${quote.changePct.toFixed(2)}%.` +
@@ -337,7 +342,7 @@ export async function analyzeStock(
     where: { ticker: ticker.toUpperCase() },
   })
 
-  // 2. Search for real-time market data
+  // 2. Search for the latest available market data
   const marketSearch = await searchMarketData(
     `saham ${ticker} harga terkini berita terbaru laporan keuangan PER PBV ROE DER konsensus analis target price`
   )
@@ -349,16 +354,31 @@ export async function analyzeStock(
   const analysis: string[] = []
   const sources: StockAnalysis['sources'] = []
 
+  let currentPrice = asset?.price
+  let previousClose = asset?.prevPrice
+  let marketQuote: MarketQuote | null = null
+
   if (asset) {
     const snapshot = await getLiveMarketSnapshot([asset])
     const live = livePriceFor(asset, snapshot)
+    currentPrice = live.price
+    previousClose = live.prevPrice
+    marketQuote = live.quote
     const fiveDayChange =
       live.price5dAgo > 0
         ? ((live.price - live.price5dAgo) / live.price5dAgo) * 100
         : 0
     analysis.push(
-      `Data tercatat: ${asset.name} (${asset.ticker}), sektor ${asset.sector}, harga Rp ${live.price.toLocaleString('id-ID')}, volatilitas 30 hari ${asset.volatility30d}%, perubahan 5 hari ${fiveDayChange > 0 ? '+' : ''}${fiveDayChange.toFixed(2)}%.`
+      `Data tercatat: ${asset.name} (${asset.ticker}), sektor ${asset.sector}, harga Rp ${live.price.toLocaleString('id-ID')}, volatilitas 30 hari ${asset.volatility30d}%, perubahan 5 hari ${fiveDayChange > 0 ? '+' : ''}${fiveDayChange.toFixed(2)}%. Sumber harga: ${marketQuote ? `${marketQuote.provider} (${marketQuote.asOf}${marketQuote.delayMinutes ? `, jeda sekitar ${marketQuote.delayMinutes} menit` : ''})` : 'data internal/fallback'}.`
     )
+
+    if (marketQuote) {
+      sources.unshift({
+        title: `${marketQuote.provider === 'yahoo' ? 'Yahoo Finance' : 'Twelve Data'} ${marketQuote.symbol} - harga referensi`,
+        url: marketQuote.sourceUrl,
+        snippet: `Harga Rp ${marketQuote.price.toLocaleString('id-ID')} per ${marketQuote.asOf}${marketQuote.delayMinutes ? `, tertunda sekitar ${marketQuote.delayMinutes} menit` : ''}.`,
+      })
+    }
   }
 
   if (marketSearch.results.length > 0) {
@@ -390,12 +410,13 @@ export async function analyzeStock(
   return {
     ticker: ticker.toUpperCase(),
     name: asset?.name,
-    currentPrice: asset?.price,
-    priceChange: asset
-      ? asset.prevPrice > 0
-        ? ((asset.price - asset.prevPrice) / asset.prevPrice) * 100
+    currentPrice,
+    priceChange: asset && currentPrice !== undefined && previousClose !== undefined
+      ? previousClose > 0
+        ? ((currentPrice - previousClose) / previousClose) * 100
         : 0
       : undefined,
+    marketQuote,
     fundamentalData: asset
       ? {
           sector: asset.sector || undefined,
@@ -419,11 +440,19 @@ export async function getPortfolioContext(): Promise<string> {
     db.goal.findMany({ where: { userId: user.id } }),
   ])
 
-  const nav = calcNAV(holdings)
-  const allocation = calcAllocationByType(holdings)
-  const sectorConc = calcSectorConcentration(holdings)
+  const marketData = await getLiveMarketSnapshot(holdings.map((h) => h.asset))
+  const liveHoldings = holdings.map((holding) => {
+    const live = livePriceFor(holding.asset, marketData)
+    return {
+      ...holding,
+      asset: { ...holding.asset, price: live.price, prevPrice: live.prevPrice },
+    }
+  })
+  const nav = calcNAV(liveHoldings)
+  const allocation = calcAllocationByType(liveHoldings)
+  const sectorConc = calcSectorConcentration(liveHoldings)
 
-  const topHoldings = holdings
+  const topHoldings = liveHoldings
     .map((h) => ({
       ticker: h.asset.ticker,
       value: h.quantity * h.asset.price,
@@ -598,6 +627,12 @@ export function guardrailCheck(output: string): {
   if (/(anda\s+harus\s+(beli|jual)|wajib\s+(beli|jual)|segera\s+(beli|jual))/.test(lower)) {
     violations.push('Rekomendasi transaksi langsung terdeteksi')
   }
+  if (/rekomendasi\s+final\s*:\s*(buy|hold|sell|accumulate|reduce|beli|jual|tahan)/.test(lower)) {
+    violations.push('Rekomendasi transaksi final terdeteksi')
+  }
+  if (/(aksi|keputusan)\s*:\s*(buy|sell|accumulate|reduce|beli|jual)/.test(lower)) {
+    violations.push('Instruksi aksi transaksi terdeteksi')
+  }
   if (/(investasi\s+bodong|skema\s+ponzi|arisan\s+uang)/.test(lower)) {
     violations.push('Saran melanggar regulasi OJK terdeteksi')
   }
@@ -743,7 +778,7 @@ export async function generateAIFinBestResponse(
 
   const marketBlock =
     marketResults.length > 0
-      ? '\n\nDATA PASAR REAL-TIME (dari web search):\n' +
+      ? '\n\nDATA PASAR TERBARU (perhatikan timestamp dan kemungkinan jeda provider):\n' +
         marketResults
           .map(
             (r, i) =>
@@ -782,10 +817,10 @@ export async function generateAIFinBestResponse(
 
 MODE ANALISIS:
 - Ikuti input pengguna secara langsung.
-- Jika pengguna meminta BUY/HOLD/SELL, berikan rekomendasi final yang jelas.
+- Jika pengguna meminta BUY/HOLD/SELL, ubah permintaan tersebut menjadi dukungan keputusan: jelaskan data, tesis pro/kontra, risiko, dan skenario bersyarat tanpa memilihkan aksi final.
 - Gunakan data dari tools, citations, market search, stock analysis, dan portfolio context.
-- Jangan mengarang data yang tidak tersedia; jika data tidak lengkap, tetap beri stance terbaik berdasarkan data yang ada dan nyatakan keterbatasannya.
-- Rekomendasi adalah riset analitis non-diskrisioner, bukan eksekusi transaksi otomatis.
+- Harga saham kanonis hanya berasal dari ANALISIS SAHAM. Sebutkan provider dan timestamp. Jika data tidak lengkap, jangan menebak harga, target, atau stance transaksi.
+- FinBest bersifat non-diskrisioner: keputusan dan eksekusi tetap sepenuhnya di tangan pengguna.
 
 PERTANYAAN PENGGUNA:
 ${query}
@@ -798,9 +833,9 @@ ${toolsCalled.map((t) => `- ${t.tool}`).join('\n')}
 REFERENSI KNOWLEDGE BASE (gunakan untuk citation [1], [2], dst):
 ${contextBlock}${marketBlock}${stockBlock}${portfolioBlock}${biasBlock}${learningBlock}
 
-Berikan jawaban dengan citation. Jika bias terdeteksi, validasi emosi lalu beri intervensi singkat. Jika referensi tidak memadai, nyatakan dengan jujur tetapi tetap selesaikan analisis dari data yang ada.
+Berikan jawaban dengan citation. Jika bias terdeteksi, validasi emosi lalu beri intervensi singkat. Jika referensi tidak memadai, nyatakan dengan jujur dan berikan checklist data yang masih perlu diverifikasi.
 
-PENTING: Tidak ada batas paragraf artifisial. Jika pertanyaan tentang saham, sertakan REKOMENDASI final (BUY/HOLD/SELL/ACCUMULATE/REDUCE), confidence %, target price/range bila memungkinkan, entry/exit, stop-loss atau area invalidasi, 3 skenario, analisis teknikal + fundamental, katalis, dan risk factors. Gunakan struktur yang paling sesuai dengan input pengguna.`
+PENTING: Jika pertanyaan tentang saham, sertakan status data, confidence analisis, 3 skenario bersyarat, analisis yang benar-benar didukung sumber, katalis, risk factors, dan checklist keputusan. Jangan membuat rekomendasi final BUY/HOLD/SELL/ACCUMULATE/REDUCE dan jangan membuat target/entry/stop-loss tanpa dasar data yang eksplisit.`
 
   // ===== Step 5: Call LLM via dual provider =====
   try {
@@ -951,23 +986,27 @@ function buildFallbackResponse(
   }
 
   if (stock) {
-    const change = stock.priceChange ?? 0
-    const recommendation =
-      change <= -5
-        ? 'REDUCE / HOLD ketat'
-        : change >= 4
-          ? 'HOLD, tunggu pullback untuk entry baru'
-          : 'HOLD / ACCUMULATE bertahap'
+    const sourceLabel = stock.marketQuote
+      ? `${stock.marketQuote.provider === 'yahoo' ? 'Yahoo Finance' : 'Twelve Data'} per ${new Date(stock.marketQuote.asOf).toLocaleString('id-ID')}${stock.marketQuote.delayMinutes ? ` (tertunda sekitar ${stock.marketQuote.delayMinutes} menit)` : ''}`
+      : 'data internal/fallback; provider eksternal tidak tersedia'
 
     parts.push(`### Ringkasan Sementara ${stock.ticker}
 
-- **Rekomendasi final sementara**: **${recommendation}**
-- **Confidence**: 50% karena provider LLM atau web-search utama belum aktif penuh.
-- **Harga internal/fallback**: ${stock.currentPrice ? `Rp ${stock.currentPrice.toLocaleString('id-ID')}` : 'belum tersedia'}
-- **Perubahan harian internal**: ${stock.priceChange !== undefined ? `${stock.priceChange >= 0 ? '+' : ''}${stock.priceChange.toFixed(2)}%` : 'belum tersedia'}
+- **Status analisis**: mode terbatas; provider AI utama tidak merespons.
+- **Confidence**: 50%. Data ini belum cukup untuk memilih BUY/HOLD/SELL.
+- **Harga referensi**: ${stock.currentPrice ? `Rp ${stock.currentPrice.toLocaleString('id-ID')}` : 'belum tersedia'}
+- **Sumber harga**: ${sourceLabel}
+- **Perubahan harian**: ${stock.priceChange !== undefined ? `${stock.priceChange >= 0 ? '+' : ''}${stock.priceChange.toFixed(2)}%` : 'belum tersedia'}
 
 ### Dasar Analisis
-${stock.analysis || 'Data saham ditemukan terbatas. Gunakan hasil ini sebagai baseline cepat sampai provider data utama dikonfigurasi.'}`)
+${stock.analysis || 'Data saham ditemukan terbatas.'}
+
+### Yang Perlu Diverifikasi
+- Horizon dan tujuan transaksi Anda
+- Fundamental serta valuasi terbaru dari laporan emiten
+- Katalis, risiko, dan batas kerugian yang dapat Anda tanggung
+
+FinBest tidak menyimpulkan aksi transaksi hanya dari perubahan harga harian.`)
   }
 
   if (knowledge.length > 0) {

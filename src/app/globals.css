@@ -69,14 +69,14 @@
   --muted-foreground: #6B7280;
   --accent: #EEEDF8;
   --accent-foreground: #433eab;
-  --destructive: #EF4444;
-  --success: #22C55E;
+  --destructive: #B91C1C;
+  --success: #166534;
   --success-foreground: #F8F8F2;
-  --warning: #F59E0B;
+  --warning: #92400E;
   --warning-foreground: #92400E;
-  --danger: #EF4444;
+  --danger: #B91C1C;
   --danger-foreground: #F8F8F2;
-  --gold: #F59E0B;
+  --gold: #92400E;
   --gold-foreground: #FFFFFF;
   --border: #E2E8F0;
   --input: #E5E7EB;
@@ -217,7 +217,7 @@
 
 /* Brass gradient for premium accents */
 .gradient-brass {
-  background: linear-gradient(135deg, #F59E0B, #B45309);
+  background: linear-gradient(135deg, #B45309, #92400E);
 }
 
 /* ==================== AI FinBest Signature ==================== */
@@ -298,10 +298,10 @@
   gap: 0.375rem;
   padding: 0.25rem 0.625rem;
   font-size: 0.6875rem;
-  font-weight: 500;
-  color: var(--gold-foreground);
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.25);
+  font-weight: 600;
+  color: var(--warning-foreground);
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.4);
   border-radius: 9999px;
 }
 
