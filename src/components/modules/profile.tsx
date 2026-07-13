@@ -345,6 +345,14 @@ const ASSET_META: Record<
   emas: { label: 'Emas', icon: Gem, color: 'text-chart-5' },
 }
 
+const ALLOCATION_SEGMENT_CLASSES: Record<keyof Allocation, string> = {
+  saham: 'bg-[#433eab] text-white',
+  obligasi: 'bg-[#433eab] text-white',
+  reksadana: 'bg-[#22C55E] text-[#00033d]',
+  kas: 'bg-[#5B6472] text-white',
+  emas: 'bg-[#EF4444] text-[#00033d]',
+}
+
 /** Map classifyRisk color → tailwind classes (muted editorial palette) */
 const RISK_COLOR_CLASSES: Record<
   string,
@@ -2514,13 +2522,7 @@ function AllocationBar({ values }: { values: Allocation }) {
   ).map((key) => ({
     key,
     value: values[key],
-    color: ASSET_META[key].color
-      .replace('text-', 'bg-')
-      .replace('-500', '-500'),
-    foreground:
-      key === 'saham' || key === 'obligasi' || key === 'kas'
-        ? 'text-white'
-        : 'text-[#00033d]',
+    className: ALLOCATION_SEGMENT_CLASSES[key],
   }))
 
   return (
@@ -2531,8 +2533,7 @@ function AllocationBar({ values }: { values: Allocation }) {
             key={seg.key}
             className={cn(
               'flex items-center justify-center text-[10px] font-semibold',
-              seg.color,
-              seg.foreground
+              seg.className
             )}
             style={{ width: `${seg.value}%` }}
             title={`${ASSET_META[seg.key].label}: ${seg.value.toFixed(0)}%`}
