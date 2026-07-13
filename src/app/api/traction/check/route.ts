@@ -4,12 +4,13 @@
  * Evaluates a transaction intent deterministically and returns:
  *   - Traction Score (0-100, transparent rule-based penalties)
  *   - Risk level (GREEN / YELLOW / ORANGE / RED)
- *   - Cooling-off duration and reflection count (0 / 2 / 3)
+ *   - Adaptive cooling-off duration, delayed skip, and reflection count
  *   - Triggered rules with detail + penalty
  *   - Projected new allocation by asset type
  *   - Warnings (educational, non-blocking)
  * Creates a TractionCheck record (confirmed=false, overridden=false) so the
  * cooling-off window is persisted server-side and cannot be bypassed by refresh.
+ * User override is only accepted after the risk-tier skip window opens.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
@@ -312,12 +313,30 @@ export async function POST(req: NextRequest) {
     // ---- Traction Score ----------------------------------------------------
     const totalPenalty = rulesTriggered.reduce((s, r) => s + r.penalty, 0)
     const tractionScore = Math.max(0, Math.min(100, 100 - totalPenalty))
-    const { level, coolingOffMs, reflectionCount } =
+    const { level, coolingOffMs, skipAvailableAfterMs, reflectionCount } =
       tractionRiskLevel(tractionScore)
+    const scoreBreakdown = {
+      model: 'hybrid_rule_behavioral_risk_v1',
+      confidence: Math.min(
+        0.92,
+        Number((0.7 + rulesTriggered.length * 0.04).toFixed(2))
+      ),
+      riskPoints: totalPenalty,
+      dataScope:
+        'Data in-app, profil risiko, portofolio, riwayat transaksi, dan data pasar publik. Tidak memantau media sosial pribadi.',
+      explainability:
+        'Reason codes digunakan untuk audit. SHAP/LIME hanya relevan untuk model prediktif yang sesuai, bukan klaim universal untuk LLM.',
+      policy:
+        coolingOffMs > 0
+          ? `Jeda ${Math.round(coolingOffMs / 1000)} detik; opsi lanjut dini tersedia setelah ${Math.round(skipAvailableAfterMs / 1000)} detik dan refleksi diisi.`
+          : reflectionCount > 0
+            ? 'Tanpa jeda waktu; pengguna hanya perlu menyelesaikan checklist refleksi singkat.'
+            : 'Tidak ada jeda karena skor berada di zona aman.',
+    }
 
-    if (tractionScore >= 60 && tractionScore < 80) {
+    if (tractionScore >= 50 && tractionScore < 80) {
       warnings.push(
-        'Traction Score di zona Peringatan. Tinjau kembali rencana alokasi sebelum eksekusi.'
+        'Traction Score berada pada Risiko Sedang. Tinjau kembali alasan transaksi dan dampaknya sebelum melanjutkan.'
       )
     }
 
@@ -347,11 +366,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       checkId: check.id,
       createdAt: check.createdAt,
+      side,
+      asset: {
+        id: liveAsset.id,
+        ticker: liveAsset.ticker,
+        name: liveAsset.name,
+        type: liveAsset.type,
+        sector: liveAsset.sector,
+      },
       tractionScore,
       riskLevel: level,
       coolingOffMs,
+      skipAvailableAfterMs,
       reflectionCount,
       rulesTriggered,
+      scoreBreakdown,
       transactionValue,
       currentNAV,
       newNAV,

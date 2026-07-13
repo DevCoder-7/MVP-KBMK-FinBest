@@ -110,6 +110,7 @@ export function tractionRiskLevel(score: number): {
   color: string
   bgColor: string
   coolingOffMs: number
+  skipAvailableAfterMs: number
   reflectionCount: number
 } {
   if (score >= 80)
@@ -119,24 +120,17 @@ export function tractionRiskLevel(score: number): {
       color: 'text-emerald-600 dark:text-emerald-400',
       bgColor: 'bg-emerald-500',
       coolingOffMs: 0,
+      skipAvailableAfterMs: 0,
       reflectionCount: 0,
     }
-  if (score >= 60)
-    return {
-      level: 'YELLOW',
-      label: 'Peringatan',
-      color: 'text-amber-600 dark:text-amber-400',
-      bgColor: 'bg-amber-500',
-      coolingOffMs: 0,
-      reflectionCount: 0,
-    }
-  if (score >= 40)
+  if (score >= 50)
     return {
       level: 'ORANGE',
-      label: 'Cooling-off',
+      label: 'Risiko Sedang',
       color: 'text-orange-600 dark:text-orange-400',
       bgColor: 'bg-orange-500',
-      coolingOffMs: 30 * 1000,
+      coolingOffMs: 15 * 1000,
+      skipAvailableAfterMs: 8 * 1000,
       reflectionCount: 2,
     }
   return {
@@ -145,6 +139,7 @@ export function tractionRiskLevel(score: number): {
     color: 'text-rose-600 dark:text-rose-400',
     bgColor: 'bg-rose-500',
     coolingOffMs: 30 * 1000,
+    skipAvailableAfterMs: 15 * 1000,
     reflectionCount: 3,
   }
 }

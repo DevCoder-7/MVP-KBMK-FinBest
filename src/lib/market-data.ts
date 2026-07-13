@@ -215,12 +215,15 @@ async function getTwelveDataQuote(asset: AssetLike): Promise<MarketQuote | null>
   }
 }
 
-async function getQuote(asset: AssetLike): Promise<MarketQuote | null> {
+async function getQuote(
+  asset: AssetLike,
+  bypassCache = false
+): Promise<MarketQuote | null> {
   if (!isQuotedAsset(asset)) return null
 
   const key = `${asset.ticker}:${asset.price}:${asset.prevPrice}`
   const cached = cache().get(key)
-  if (cached && cached.expiresAt > Date.now()) {
+  if (!bypassCache && cached && cached.expiresAt > Date.now()) {
     return cached.quote
   }
 
@@ -238,7 +241,8 @@ async function getQuote(asset: AssetLike): Promise<MarketQuote | null> {
 }
 
 export async function getLiveMarketSnapshot(
-  assets: AssetLike[]
+  assets: AssetLike[],
+  options: { bypassCache?: boolean } = {}
 ): Promise<MarketSnapshot> {
   const quotedAssets = assets.filter(isQuotedAsset)
   if (quotedAssets.length === 0) {
@@ -252,7 +256,9 @@ export async function getLiveMarketSnapshot(
     }
   }
 
-  const settled = await Promise.allSettled(quotedAssets.map((asset) => getQuote(asset)))
+  const settled = await Promise.allSettled(
+    quotedAssets.map((asset) => getQuote(asset, options.bypassCache))
+  )
   const quotes: Record<string, MarketQuote> = {}
   for (const result of settled) {
     if (result.status === 'fulfilled' && result.value) {

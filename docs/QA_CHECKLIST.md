@@ -28,7 +28,7 @@ http://localhost:3002
 - Dashboard memuat ringkasan, insight, top positions, dan transaksi terbaru.
 - Search bar atas menampilkan command palette, bukan redirect otomatis saat mengetik.
 - Portofolio memuat posisi, alokasi, sektor, riwayat, dan tombol ekspor.
-- Friction Gate memakai cooldown 30 detik dan bisa membuat evaluasi transaksi.
+- Friction Gate memakai jeda adaptif sesuai risiko, delayed skip, dan bisa membuat evaluasi transaksi.
 - AI Mentor rapi di desktop/tablet/mobile, sidebar dan context panel tidak overlap.
 - Edukasi bisa membuka materi, tombol Tanya AI berfungsi, dan tombol lanjut bisa diklik.
 - Profil bisa membuka risk questionnaire, tujuan, alokasi, import CSV, dan dialog broker.

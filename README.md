@@ -6,7 +6,7 @@ FinBest MVP Web adalah aplikasi edukasi dan asisten investasi non-diskrisioner u
 
 - Dashboard ringkasan NAV, alokasi aset, insight perilaku, dan laporan.
 - Portofolio dengan posisi, P&L, alokasi, sektor, riwayat, ekspor PDF/CSV, dan live market adapter.
-- Friction Gate untuk evaluasi niat transaksi dengan cooldown 30 detik.
+- Friction Gate untuk evaluasi niat transaksi dengan jeda adaptif sesuai risiko.
 - AI Mentor untuk tanya jawab investasi, analisis saham, deteksi bias, dan konteks portofolio.
 - Edukasi dengan learning path, kuis mastery, dan integrasi tanya AI.
 - Profil investor, target alokasi, tujuan keuangan, import CSV, dan simulasi broker read-only.

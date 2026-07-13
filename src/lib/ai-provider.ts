@@ -141,7 +141,7 @@ export function getTierLimits(tier: 'FREE' | 'PRO' = 'FREE') {
         'AI Mentor dengan Gemini 2.0 Flash',
         'Analisis saham tak terbatas',
         'Prediksi harga & rekomendasi mendalam',
-        'Cooling-off 30 detik',
+        'Jeda Friction Gate adaptif',
         'Edukasi premium + spaced repetition',
         'Ekspor laporan PDF',
         'Prioritas support',

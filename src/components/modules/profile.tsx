@@ -668,8 +668,8 @@ const COMPARISON_ROWS: {
   {
     label: 'Cooling-off',
     icon: Clock,
-    free: '30 detik',
-    pro: '30 detik',
+    free: 'Adaptif',
+    pro: 'Adaptif',
   },
   { label: 'Ekspor PDF', icon: FileText, free: '—', pro: 'Tersedia' },
   { label: 'Support', icon: Sparkles, free: 'Komunitas', pro: 'Prioritas' },

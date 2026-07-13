@@ -1,11 +1,11 @@
 'use client'
 
 /**
- * FinBest AI — Modul 2: Traction (Pencegahan Pembelian Impulsif)
+ * FinBest AI — Modul 2: Traction (Pencegahan Keputusan Impulsif)
  *
  * - Pre-trade check: form asset/side/qty → server-evaluated Traction Score
  * - Cooling-off timer anchored to server TractionCheck.createdAt
- * - Structured reflection (2 / 3 questions) locked until cooling-off elapsed
+ * - Structured reflection + delayed skip based on risk tier
  * - Non-discretionary override path with double-confirm
  * - Audit trail + stats dashboard + CSV export
  */
@@ -54,7 +54,6 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { Textarea } from '@/components/ui/textarea'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -119,11 +118,28 @@ interface TriggeredRule {
 interface CheckResponse {
   checkId: string
   createdAt: string
+  side: Side
+  asset: {
+    id: string
+    ticker: string
+    name: string
+    type: string
+    sector: string | null
+  }
   tractionScore: number
   riskLevel: RiskLevel
   coolingOffMs: number
+  skipAvailableAfterMs: number
   reflectionCount: number
   rulesTriggered: TriggeredRule[]
+  scoreBreakdown?: {
+    model: string
+    confidence: number
+    riskPoints: number
+    dataScope: string
+    explainability: string
+    policy: string
+  }
   transactionValue: number
   currentNAV: number
   newNAV: number
@@ -173,15 +189,53 @@ interface HistoryResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Reflection question pool (PRD FR-2.4)
+// Reflection checklist (PRD FR-2.4)
 // ---------------------------------------------------------------------------
-const REFLECTION_POOL: string[] = [
-  'Apakah pembelian ini sesuai dengan rencana alokasi target Anda?',
-  'Apa pemicu utama keputusan transaksi ini? (analisis / fomo / tips / rekomendasi / lainnya)',
-  'Bagaimana transaksi ini mempengaruhi profil risiko portofolio Anda?',
-  'Apakah Anda sudah mempertimbangkan alternatif (menunggu / DCA / tidak melakukan)?',
-  'Berapa persen dari NAV transaksi ini? Apakah masih dalam batas aman?',
-]
+type ReflectionQuestion = {
+  id: string
+  text: string
+  helper: string
+}
+
+function buildReflectionQuestions(
+  side: Side,
+  asset: CheckResponse['asset'],
+  count: number
+): ReflectionQuestion[] {
+  const action = side === 'BUY' ? 'BUY' : 'SELL'
+  const impulseRisk = side === 'BUY' ? 'FOMO/tips/herding' : 'panic selling/herding'
+  const outcomeRisk =
+    side === 'BUY'
+      ? 'risiko downside setelah masuk posisi'
+      : 'risiko opportunity loss setelah keluar posisi'
+  const planFit =
+    side === 'BUY'
+      ? `BUY ${asset.ticker} ini masih sesuai rencana alokasi target Anda?`
+      : `SELL ${asset.ticker} ini masih sesuai rencana exit atau rebalancing Anda?`
+
+  return [
+    {
+      id: 'plan-fit',
+      text: planFit,
+      helper:
+        side === 'BUY'
+          ? 'Cek batas alokasi, konsentrasi sektor, dan ukuran transaksi.'
+          : 'Cek tujuan jual: cut-loss, take-profit, rebalancing, atau kebutuhan likuiditas.',
+    },
+    {
+      id: 'analysis-based',
+      text: `Keputusan ${action} ini berbasis analisis, bukan ${impulseRisk}?`,
+      helper:
+        'Jawab cepat berdasarkan alasan utama Anda. Reason codes tetap tersimpan di audit trail.',
+    },
+    {
+      id: 'risk-accepted',
+      text: `Anda memahami ${outcomeRisk} dan tetap ingin mencatat keputusan ${action} ini?`,
+      helper:
+        'FinBest tidak mengeksekusi order. Checklist ini hanya decision journal non-diskrisioner.',
+    },
+  ].slice(0, Math.max(0, count))
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -209,7 +263,7 @@ const RISK_THEME: Record<
       'bg-success/15 text-success border-success/30',
   },
   YELLOW: {
-    label: 'Peringatan',
+    label: 'Risiko Sedang',
     text: 'text-warning',
     bg: 'bg-warning/10',
     border: 'border-warning/30',
@@ -219,7 +273,7 @@ const RISK_THEME: Record<
       'bg-warning/15 text-warning border-warning/30',
   },
   ORANGE: {
-    label: 'Cooling-off',
+    label: 'Risiko Sedang',
     text: 'text-orange-700 dark:text-orange-300',
     bg: 'bg-orange-500/10',
     border: 'border-orange-500/30',
@@ -380,10 +434,10 @@ export default function TractionModule() {
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false)
   const [overrideAcknowledged, setOverrideAcknowledged] = useState(false)
 
-  // Cooling-off countdown (ms remaining). Refresh-proof: anchored to server createdAt.
+  // Adaptive countdown (ms remaining). Refresh-proof: anchored to server createdAt.
   const [remainingMs, setRemainingMs] = useState(0)
 
-  // Reflections: map of question → answer
+  // Reflections: map of question id -> yes/no answer
   const [reflections, setReflections] = useState<Record<string, string>>({})
 
   // Audit trail + stats
@@ -405,9 +459,12 @@ export default function TractionModule() {
   }, [selectedAsset, quantity])
 
   const reflectionQuestions = useMemo(() => {
-    if (!activeCheck) return [] as string[]
-    const n = activeCheck.reflectionCount
-    return REFLECTION_POOL.slice(0, n)
+    if (!activeCheck) return [] as ReflectionQuestion[]
+    return buildReflectionQuestions(
+      activeCheck.side,
+      activeCheck.asset,
+      activeCheck.reflectionCount
+    )
   }, [activeCheck])
 
   const coolingOffActive = useMemo(() => {
@@ -415,19 +472,41 @@ export default function TractionModule() {
     return remainingMs > 0
   }, [activeCheck, remainingMs])
 
+  const coolingElapsedMs = useMemo(() => {
+    if (!activeCheck || activeCheck.coolingOffMs === 0) return 0
+    return Math.max(0, activeCheck.coolingOffMs - remainingMs)
+  }, [activeCheck, remainingMs])
+
+  const skipAvailableAfterMs = activeCheck?.skipAvailableAfterMs ?? 0
+  const skipUnlocked = useMemo(() => {
+    if (!activeCheck || activeCheck.coolingOffMs === 0) return true
+    return coolingElapsedMs >= skipAvailableAfterMs
+  }, [activeCheck, coolingElapsedMs, skipAvailableAfterMs])
+  const skipUnlockRemainingMs = useMemo(() => {
+    if (!activeCheck || skipUnlocked) return 0
+    return Math.max(0, skipAvailableAfterMs - coolingElapsedMs)
+  }, [activeCheck, coolingElapsedMs, skipAvailableAfterMs, skipUnlocked])
+  const waitGateSatisfied = useMemo(() => {
+    if (!activeCheck || activeCheck.coolingOffMs === 0) return true
+    return !coolingOffActive || skipUnlocked
+  }, [activeCheck, coolingOffActive, skipUnlocked])
+  const isEarlyContinuation = Boolean(
+    activeCheck && activeCheck.coolingOffMs > 0 && coolingOffActive && skipUnlocked
+  )
+
   const allReflectionsAnswered = useMemo(() => {
     if (reflectionQuestions.length === 0) return true
     return reflectionQuestions.every(
-      (q) => (reflections[q] || '').trim().length > 0
+      (q) => (reflections[q.id] || '').trim().length > 0
     )
   }, [reflectionQuestions, reflections])
 
   const canConfirm = useMemo(() => {
     if (!activeCheck) return false
-    if (coolingOffActive) return false
+    if (!waitGateSatisfied) return false
     if (!allReflectionsAnswered) return false
     return true
-  }, [activeCheck, coolingOffActive, allReflectionsAnswered])
+  }, [activeCheck, waitGateSatisfied, allReflectionsAnswered])
 
   // ---- Effects -------------------------------------------------------------
   // Load assets on mount
@@ -539,8 +618,8 @@ export default function TractionModule() {
       setConfirming(true)
       try {
         const reflectionArr = reflectionQuestions.map((q) => ({
-          question: q,
-          answer: (reflections[q] || '').trim(),
+          question: q.text,
+          answer: (reflections[q.id] || '').trim(),
         }))
         const res = await fetch('/api/traction/confirm', {
           method: 'POST',
@@ -583,8 +662,14 @@ export default function TractionModule() {
       setOverrideDialogOpen(true)
       return
     }
-    doConfirm(false)
-  }, [canConfirm, activeCheck, overrideAcknowledged, doConfirm])
+    doConfirm(isEarlyContinuation)
+  }, [
+    canConfirm,
+    activeCheck,
+    overrideAcknowledged,
+    isEarlyContinuation,
+    doConfirm,
+  ])
 
   const handleCancel = useCallback(() => {
     setActiveCheck(null)
@@ -722,7 +807,7 @@ export default function TractionModule() {
               Traction
             </h1>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Pencegahan pembelian impulsif melalui evaluasi transaksi,
+              Pencegahan keputusan impulsif saat membeli maupun menjual melalui evaluasi transaksi,
               cooling-off, dan refleksi terstruktur. Sistem bersifat{' '}
               <span className="font-semibold text-primary">
                 non-diskrisioner
@@ -1047,6 +1132,41 @@ export default function TractionModule() {
                       </Alert>
                     ) : null}
 
+                    {activeCheck.scoreBreakdown ? (
+                      <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                              AI-assisted Behavioral Risk Score
+                            </p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {activeCheck.scoreBreakdown.dataScope}
+                            </p>
+                          </div>
+                          <Badge
+                            variant="outline"
+                            className="border-primary/30 text-primary"
+                          >
+                            Confidence{' '}
+                            {Math.round(
+                              activeCheck.scoreBreakdown.confidence * 100
+                            )}
+                            %
+                          </Badge>
+                        </div>
+                        <div className="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                          <div className="rounded-md border bg-background px-3 py-2">
+                            <span className="font-medium">Policy:</span>{' '}
+                            {activeCheck.scoreBreakdown.policy}
+                          </div>
+                          <div className="rounded-md border bg-background px-3 py-2">
+                            <span className="font-medium">Explainability:</span>{' '}
+                            {activeCheck.scoreBreakdown.explainability}
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
                     {/* New allocation preview */}
                     <div className="rounded-lg border bg-muted/20 p-3">
                       <p className="mb-2 text-xs font-semibold text-muted-foreground">
@@ -1102,13 +1222,17 @@ export default function TractionModule() {
                     <div>
                       <p className="text-sm font-semibold">
                         {coolingOffActive
-                          ? 'Cooling-off Aktif'
+                          ? 'Jeda Refleksi Adaptif'
                           : 'Cooling-off Selesai'}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {coolingOffActive
-                          ? 'Tombol refleksi terkunci hingga timer selesai. Timer tidak dapat dilewati dengan refresh.'
-                          : 'Anda dapat melanjutkan ke refleksi terstruktur.'}
+                          ? skipUnlocked
+                            ? 'Opsi lanjut dini sudah tersedia setelah reason codes dibaca. Jika dipakai, keputusan dicatat sebagai override sadar risiko.'
+                            : `Opsi lanjut dini muncul dalam ${formatCountdown(
+                                skipUnlockRemainingMs
+                              )}. Refleksi dapat diisi sambil menunggu.`
+                          : 'Jeda penuh selesai. Anda dapat melanjutkan setelah refleksi terisi.'}
                       </p>
                     </div>
                   </div>
@@ -1123,7 +1247,9 @@ export default function TractionModule() {
                       {formatCountdown(remainingMs)}
                     </p>
                     <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      {formatDurationShort(activeCheck.coolingOffMs)} total
+                      {formatDurationShort(activeCheck.coolingOffMs)} total ·
+                      skip setelah{' '}
+                      {formatDurationShort(activeCheck.skipAvailableAfterMs)}
                     </p>
                   </div>
                 </CardContent>
@@ -1134,47 +1260,68 @@ export default function TractionModule() {
             {reflectionQuestions.length > 0 ? (
               <Card
                 className={`border-2 ${
-                  coolingOffActive
-                    ? 'border-muted opacity-60'
-                    : RISK_THEME[activeCheck.riskLevel].border
+                  waitGateSatisfied
+                    ? RISK_THEME[activeCheck.riskLevel].border
+                    : 'border-muted'
                 }`}
               >
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 font-serif text-lg">
                     <Brain className="size-5 text-warning" />
-                    Refleksi Terstruktur
+                    Checklist Refleksi Cepat
                     <Badge variant="outline" className="ml-1">
-                      {reflectionQuestions.length} pertanyaan wajib
+                      {reflectionQuestions.length} item wajib
                     </Badge>
                   </CardTitle>
                   <CardDescription>
-                    {coolingOffActive
-                      ? 'Refleksi terkunci hingga cooling-off selesai.'
-                      : 'Jawab semua pertanyaan sebelum dapat mengonfirmasi transaksi.'}
+                    Pilih Ya/Tidak. Checklist ini singkat agar audit keputusan
+                    tetap tercatat tanpa menahan Anda terlalu lama saat harga
+                    pasar bergerak.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {reflectionQuestions.map((q, idx) => (
-                    <div key={q} className="space-y-1.5">
-                      <Label className="flex items-start gap-2 text-sm font-medium">
-                        <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-warning/15 text-[11px] font-bold text-warning">
-                          {idx + 1}
-                        </span>
-                        <span>{q}</span>
-                      </Label>
-                      <Textarea
-                        disabled={coolingOffActive}
-                        placeholder="Tulis refleksi Anda…"
-                        value={reflections[q] || ''}
-                        onChange={(e) =>
+                    <div
+                      key={q.id}
+                      className="grid gap-3 rounded-lg border bg-background p-3 sm:grid-cols-[1fr_auto] sm:items-center"
+                    >
+                      <div className="min-w-0">
+                        <Label className="flex items-start gap-2 text-sm font-medium">
+                          <span className="mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-warning/15 text-[11px] font-bold text-warning">
+                            {idx + 1}
+                          </span>
+                          <span>{q.text}</span>
+                        </Label>
+                        <p className="mt-1 pl-7 text-xs leading-relaxed text-muted-foreground">
+                          {q.helper}
+                        </p>
+                      </div>
+                      <ToggleGroup
+                        type="single"
+                        value={reflections[q.id] || ''}
+                        onValueChange={(value) => {
                           setReflections((prev) => ({
                             ...prev,
-                            [q]: e.target.value,
+                            [q.id]: value,
                           }))
-                        }
-                        rows={2}
-                        className="resize-none"
-                      />
+                        }}
+                        className="grid grid-cols-2 gap-2 sm:w-40"
+                      >
+                        <ToggleGroupItem
+                          value="Ya"
+                          aria-label={`${q.text} Ya`}
+                          className="h-10 rounded-md border data-[state=on]:border-success data-[state=on]:bg-success/15 data-[state=on]:text-success"
+                        >
+                          Ya
+                        </ToggleGroupItem>
+                        <ToggleGroupItem
+                          value="Tidak"
+                          aria-label={`${q.text} Tidak`}
+                          className="h-10 rounded-md border data-[state=on]:border-destructive data-[state=on]:bg-destructive/10 data-[state=on]:text-destructive"
+                        >
+                          Tidak
+                        </ToggleGroupItem>
+                      </ToggleGroup>
                     </div>
                   ))}
                 </CardContent>
@@ -1182,16 +1329,16 @@ export default function TractionModule() {
             ) : null}
 
             {/* Non-discretionary notice */}
-            {activeCheck.riskLevel === 'ORANGE' ||
-            activeCheck.riskLevel === 'RED' ? (
+            {activeCheck.coolingOffMs > 0 ? (
               <Alert className="border-success/30 bg-success/5">
                 <ShieldCheck className="text-success" />
                 <AlertTitle>Prinsip Non-Diskrisioner</AlertTitle>
                 <AlertDescription>
-                  Anda tetap berwenang mengeksekusi. FinBest AI bersifat
-                  non-diskrisioner — sistem tidak mengeksekusi transaksi atas
-                  nama pengguna. Setelah cooling-off selesai dan refleksi
-                  dijawab, Anda dapat mengonfirmasi transaksi ini.
+                  FinBest tidak mengeksekusi order, tidak memegang dana, dan
+                  tidak menggantikan broker atau penasihat berizin. Pada MVP web
+                  ini, tombol konfirmasi hanya mencatat decision journal dan
+                  audit trail. Eksekusi nyata tetap berada di tangan pengguna
+                  atau platform mitra berizin pada fase integrasi.
                 </AlertDescription>
               </Alert>
             ) : null}
@@ -1233,10 +1380,13 @@ export default function TractionModule() {
                           <strong className="text-destructive">
                             Risiko Tinggi
                           </strong>
-                          . Anda telah menyelesaikan cooling-off dan refleksi.
+                          . Anda telah membaca reason codes dan mengisi
+                          refleksi minimum.
                           Dengan menekan &quot;Lanjutkan Eksekusi&quot;, Anda
                           memahami risiko dan tetap ingin mengeksekusi transaksi
-                          ini. FinBest AI bersifat non-diskrisioner.
+                          ini. Pada MVP web, tindakan ini hanya dicatat sebagai
+                          decision journal dan audit trail. FinBest AI bersifat
+                          non-diskrisioner.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -1267,22 +1417,31 @@ export default function TractionModule() {
                   </AlertDialog>
                 ) : null}
 
-                <Button
-                  onClick={handleConfirmClick}
-                  disabled={!canConfirm || confirming}
-                  className="gradient-pine text-primary-foreground hover:opacity-90"
-                >
-                  {confirming ? (
-                    <>
-                      <Loader2 className="size-4 animate-spin" /> Memproses…
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="size-4" />
-                      Konfirmasi &amp; Catat Transaksi
-                    </>
-                  )}
-                </Button>
+                {activeCheck.riskLevel === 'RED' &&
+                !overrideAcknowledged ? null : (
+                  <Button
+                    onClick={handleConfirmClick}
+                    disabled={!canConfirm || confirming}
+                    className="gradient-pine text-primary-foreground hover:opacity-90"
+                  >
+                    {confirming ? (
+                      <>
+                        <Loader2 className="size-4 animate-spin" /> Memproses…
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="size-4" />
+                        {!waitGateSatisfied
+                          ? 'Menunggu Jeda Minimum'
+                          : isEarlyContinuation
+                            ? 'Lanjut Dini & Catat Override'
+                            : activeCheck.coolingOffMs > 0
+                              ? 'Konfirmasi setelah Jeda'
+                              : 'Konfirmasi & Catat Transaksi'}
+                      </>
+                    )}
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   onClick={handleAskAIFinbest}
@@ -1297,12 +1456,12 @@ export default function TractionModule() {
 
             {!canConfirm && activeCheck.coolingOffMs > 0 ? (
               <p className="text-center text-xs text-muted-foreground">
-                {coolingOffActive
-                  ? `Tunggu ${formatCountdown(
-                      remainingMs
-                    )} hingga cooling-off selesai.`
+                {!waitGateSatisfied
+                  ? `Opsi lanjut dini aktif dalam ${formatCountdown(
+                      skipUnlockRemainingMs
+                    )}; timer penuh tersisa ${formatCountdown(remainingMs)}.`
                   : !allReflectionsAnswered
-                    ? 'Jawab semua pertanyaan refleksi untuk mengaktifkan tombol konfirmasi.'
+                    ? 'Jawab semua pertanyaan refleksi untuk mengaktifkan tombol lanjut.'
                     : ''}
               </p>
             ) : null}
