@@ -1034,10 +1034,10 @@ export default function TractionModule() {
             className="mb-6 space-y-4"
           >
             <Card
-              className={`overflow-hidden border-2 ${RISK_THEME[activeCheck.riskLevel].border}`}
+              className={`gap-0 overflow-hidden border-2 py-0 ${RISK_THEME[activeCheck.riskLevel].border}`}
             >
               <CardHeader
-                className={`pb-2 ${RISK_THEME[activeCheck.riskLevel].bg}`}
+                className={`py-4 sm:py-5 ${RISK_THEME[activeCheck.riskLevel].bg}`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -1053,7 +1053,7 @@ export default function TractionModule() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="pt-5">
+              <CardContent className="py-5">
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
                   {/* Gauge */}
                   <div className="flex flex-col items-center justify-center gap-3 lg:col-span-1">
