@@ -110,27 +110,27 @@ const INTENT_META: Record<
 > = {
   faktual: {
     label: 'Faktual',
-    cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200 dark:border-emerald-900',
+    cls: 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200',
     icon: FileText,
   },
   analitik: {
     label: 'Analitik',
-    cls: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-900',
+    cls: 'border-[#D97706]/50 bg-[#FFFBEB] text-[#78350F] dark:border-[#F59E0B]/60 dark:bg-[#451A03] dark:text-[#FDE68A]',
     icon: Brain,
   },
   opini: {
     label: 'Opini',
-    cls: 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 border-rose-200 dark:border-rose-900',
+    cls: 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-200',
     icon: Quote,
   },
   regulasi: {
     label: 'Regulasi',
-    cls: 'bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-300 border-teal-200 dark:border-teal-900',
+    cls: 'border-teal-300 bg-teal-50 text-teal-800 dark:border-teal-800 dark:bg-teal-950/50 dark:text-teal-200',
     icon: Shield,
   },
   edukatif: {
     label: 'Edukatif',
-    cls: 'bg-slate-100 text-slate-700 dark:bg-slate-800/70 dark:text-slate-300 border-slate-200 dark:border-slate-700',
+    cls: 'border-slate-300 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-900/70 dark:text-slate-200',
     icon: BookOpen,
   },
 }
@@ -143,16 +143,16 @@ function getConfidenceTier(conf: number): {
   if (conf >= 0.8)
     return {
       tier: 'HIGH',
-      cls: 'bg-emerald-500 text-white',
+      cls: 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200',
       label: 'Tinggi',
     }
   if (conf >= 0.6)
     return {
       tier: 'MEDIUM',
-      cls: 'bg-amber-500 text-white',
+      cls: 'border-[#D97706]/50 bg-[#FFFBEB] text-[#78350F] dark:border-[#F59E0B]/60 dark:bg-[#451A03] dark:text-[#FDE68A]',
       label: 'Sedang',
     }
-  return { tier: 'LOW', cls: 'bg-rose-500 text-white', label: 'Rendah' }
+  return { tier: 'LOW', cls: 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-200', label: 'Rendah' }
 }
 
 /** Detect guardrail-triggered response */
@@ -488,6 +488,7 @@ function AssistantMessage({
             </Badge>
           )}
           <Badge
+            variant="outline"
             className={cn('gap-1 text-[10px] font-semibold', confTier.cls)}
             title={`Confidence ${(conf * 100).toFixed(0)}%`}
           >
@@ -1366,8 +1367,9 @@ export default function AIChatModule() {
                       Rata-rata confidence
                     </span>
                     <Badge
+                      variant="outline"
                       className={cn(
-                        'text-[10px] font-semibold text-white',
+                        'text-[10px] font-semibold',
                         getConfidenceTier(avgConfidence).cls
                       )}
                     >

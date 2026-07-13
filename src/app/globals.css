@@ -66,7 +66,7 @@
   --secondary: #EEEDF8;
   --secondary-foreground: #433eab;
   --muted: #F3F4F6;
-  --muted-foreground: #6B7280;
+  --muted-foreground: #5B6472;
   --accent: #EEEDF8;
   --accent-foreground: #433eab;
   --destructive: #B91C1C;
@@ -103,12 +103,12 @@
   --card-foreground: #F8F8F2;
   --popover: #1a1a4e;
   --popover-foreground: #F8F8F2;
-  --primary: #6D83F2;
+  --primary: #5368D8;
   --primary-foreground: #FFFFFF;
   --secondary: #26265f;
   --secondary-foreground: #F8F8F2;
   --muted: #26265f;
-  --muted-foreground: #9AA9FF;
+  --muted-foreground: #C8D0FF;
   --accent: #26265f;
   --accent-foreground: #F8F8F2;
   --destructive: #EF4444;
@@ -147,6 +147,14 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection {
+    color: #00033d;
+    background: #D8DEFF;
+  }
+  .dark ::selection {
+    color: #FFFFFF;
+    background: #433eab;
   }
   /* Prototype keeps headings compact and system-like. */
   h1, h2, h3 {
@@ -208,11 +216,11 @@
 
 /* Blue gradient — used sparingly for primary CTAs */
 .gradient-pine {
-  background: linear-gradient(180deg, #6D83F2, #433eab);
+  background: linear-gradient(180deg, #5368D8, #433eab);
 }
 
 .gradient-blue {
-  background: linear-gradient(180deg, #6D83F2, #433eab);
+  background: linear-gradient(180deg, #5368D8, #433eab);
 }
 
 /* Brass gradient for premium accents */

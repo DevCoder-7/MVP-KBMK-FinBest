@@ -150,6 +150,14 @@ const ASSET_TYPE_COLORS: Record<string, string> = {
   KAS: '#9AA9FF',
 }
 
+const ASSET_TYPE_FOREGROUNDS: Record<string, string> = {
+  SAHAM: '#FFFFFF',
+  OBLIGASI: '#FFFFFF',
+  REKSADANA: '#00033d',
+  EMAS: '#00033d',
+  KAS: '#00033d',
+}
+
 const ASSET_TYPE_LABEL: Record<string, string> = {
   SAHAM: 'Saham',
   OBLIGASI: 'Obligasi',
@@ -485,8 +493,11 @@ export default function PortfolioModule() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <div
-                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white"
-                              style={{ background: ASSET_TYPE_COLORS[p.type] }}
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[10px] font-bold"
+                              style={{
+                                background: ASSET_TYPE_COLORS[p.type],
+                                color: ASSET_TYPE_FOREGROUNDS[p.type] ?? '#FFFFFF',
+                              }}
                             >
                               {p.ticker.slice(0, 3)}
                             </div>
@@ -579,8 +590,11 @@ export default function PortfolioModule() {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <div
-                          className="flex h-9 w-9 items-center justify-center rounded-md text-[10px] font-bold text-white"
-                          style={{ background: ASSET_TYPE_COLORS[p.type] }}
+                          className="flex h-9 w-9 items-center justify-center rounded-md text-[10px] font-bold"
+                          style={{
+                            background: ASSET_TYPE_COLORS[p.type],
+                            color: ASSET_TYPE_FOREGROUNDS[p.type] ?? '#FFFFFF',
+                          }}
                         >
                           {p.ticker.slice(0, 3)}
                         </div>

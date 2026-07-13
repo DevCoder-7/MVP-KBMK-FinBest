@@ -204,23 +204,23 @@ const INTENT_META: Record<
 > = {
   faktual: {
     label: 'Faktual',
-    cls: 'border-primary/30 bg-primary/5 text-primary',
+    cls: 'border-[#A5B4FC] bg-[#EEF2FF] text-[#312E81] dark:border-[#6D83F2]/60 dark:bg-[#26265F] dark:text-[#E0E7FF]',
   },
   analitik: {
     label: 'Analitik',
-    cls: 'border-warning/40 bg-warning/10 text-warning',
+    cls: 'border-[#D97706]/50 bg-[#FFFBEB] text-[#78350F] dark:border-[#F59E0B]/60 dark:bg-[#451A03] dark:text-[#FDE68A]',
   },
   opini: {
     label: 'Opini',
-    cls: 'border-rose-300/60 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300',
+    cls: 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-200',
   },
   regulasi: {
     label: 'Regulasi',
-    cls: 'border-primary/30 bg-primary/5 text-primary',
+    cls: 'border-teal-300 bg-teal-50 text-teal-800 dark:border-teal-800 dark:bg-teal-950/50 dark:text-teal-200',
   },
   edukatif: {
     label: 'Edukatif',
-    cls: 'border-border bg-secondary text-secondary-foreground',
+    cls: 'border-[#C7C4EA] bg-[#EEEDF8] text-[#312E81] dark:border-[#6D83F2]/50 dark:bg-[#26265F] dark:text-[#E0E7FF]',
   },
 }
 
@@ -232,18 +232,18 @@ function getConfidenceTier(conf: number): {
   if (conf >= 0.8)
     return {
       tier: 'HIGH',
-      cls: 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300',
+      cls: 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200',
       label: 'Tinggi',
     }
   if (conf >= 0.6)
     return {
       tier: 'MEDIUM',
-      cls: 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300',
+      cls: 'border-[#D97706]/50 bg-[#FFFBEB] text-[#78350F] dark:border-[#F59E0B]/60 dark:bg-[#451A03] dark:text-[#FDE68A]',
       label: 'Sedang',
     }
   return {
     tier: 'LOW',
-    cls: 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300',
+    cls: 'border-rose-300 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-200',
     label: 'Rendah',
   }
 }
@@ -254,16 +254,16 @@ function getCitationTier(sim: number): {
 } {
   if (sim >= 0.8)
     return {
-      cls: 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300',
+      cls: 'border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200',
       label: 'HIGH',
     }
   if (sim >= 0.65)
     return {
-      cls: 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300',
+      cls: 'border-[#D97706]/50 bg-[#FFFBEB] text-[#78350F] dark:border-[#F59E0B]/60 dark:bg-[#451A03] dark:text-[#FDE68A]',
       label: 'MEDIUM',
     }
   return {
-    cls: 'border-border bg-muted text-muted-foreground',
+    cls: 'border-[#CBD5E1] bg-[#F8FAFC] text-[#475569] dark:border-[#64748B] dark:bg-[#1E293B] dark:text-[#E2E8F0]',
     label: 'LOW',
   }
 }
@@ -654,7 +654,7 @@ function LearningPathList({ items }: { items: LearningPathItem[] }) {
       return 'border-primary/30 bg-primary/5 text-primary'
     if (dl.includes('lanjut') || dl.includes('advanced'))
       return 'border-destructive/30 bg-destructive/5 text-destructive'
-    return 'border-warning/30 bg-warning/5 text-warning'
+    return 'border-[#D97706]/50 bg-[#FFFBEB] text-[#78350F] dark:border-[#F59E0B]/60 dark:bg-[#451A03] dark:text-[#FDE68A]'
   }
   return (
     <div className="mb-3">
@@ -752,7 +752,7 @@ function CitationsList({
                     {c.type === 'market' ? (
                       <Badge
                         variant="outline"
-                        className="h-3.5 border-warning/40 bg-warning/10 px-1 text-[9px] font-medium text-warning"
+                        className="h-3.5 border-[#D97706]/50 bg-[#FFFBEB] px-1 text-[9px] font-medium text-[#78350F] dark:border-[#F59E0B]/60 dark:bg-[#451A03] dark:text-[#FDE68A]"
                       >
                         Web
                       </Badge>
@@ -812,10 +812,10 @@ function CitationsList({
 
 function InadequateWarning() {
   return (
-    <div className="mt-3 flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning-foreground">
-      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+    <div className="mt-3 flex items-start gap-2 rounded-lg border border-[#D97706]/50 bg-[#FFFBEB] px-3 py-2 text-xs text-[#78350F] dark:border-[#F59E0B]/60 dark:bg-[#451A03] dark:text-[#FDE68A]">
+      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#B45309] dark:text-[#FBBF24]" />
       <p>
-        <span className="font-semibold text-warning">Referensi memadai tidak ditemukan.</span>{' '}
+        <span className="font-semibold text-[#78350F] dark:text-[#FDE68A]">Referensi memadai tidak ditemukan.</span>{' '}
         Jawaban ini mungkin kurang akurat. Pertimbangkan untuk mengubah pertanyaan
         atau berkonsultasi dengan sumber resmi.
       </p>

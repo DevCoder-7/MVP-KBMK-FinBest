@@ -2517,6 +2517,10 @@ function AllocationBar({ values }: { values: Allocation }) {
     color: ASSET_META[key].color
       .replace('text-', 'bg-')
       .replace('-500', '-500'),
+    foreground:
+      key === 'saham' || key === 'obligasi' || key === 'kas'
+        ? 'text-white'
+        : 'text-[#00033d]',
   }))
 
   return (
@@ -2525,7 +2529,11 @@ function AllocationBar({ values }: { values: Allocation }) {
         seg.value > 0 ? (
           <div
             key={seg.key}
-            className={cn('flex items-center justify-center text-[10px] font-medium text-white', seg.color)}
+            className={cn(
+              'flex items-center justify-center text-[10px] font-semibold',
+              seg.color,
+              seg.foreground
+            )}
             style={{ width: `${seg.value}%` }}
             title={`${ASSET_META[seg.key].label}: ${seg.value.toFixed(0)}%`}
           >

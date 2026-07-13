@@ -222,7 +222,7 @@ function PricingCard({
           <span
             className={cn(
               'text-sm',
-              isPro ? 'text-primary-foreground/80' : 'text-muted-foreground'
+              isPro ? 'text-primary-foreground' : 'text-muted-foreground'
             )}
           >
             {plan.period}
@@ -232,7 +232,7 @@ function PricingCard({
         <p
           className={cn(
             'mt-2 text-xs lg:text-sm',
-            isPro ? 'text-primary-foreground/85' : 'text-muted-foreground'
+            isPro ? 'text-primary-foreground' : 'text-muted-foreground'
           )}
         >
           {plan.blurb}
