@@ -5,6 +5,7 @@ Folder ini menyimpan dokumentasi teknis yang dibutuhkan untuk development, QA, d
 ## Isi
 
 - `DEPLOYMENT.md` - panduan lokal, Vercel, dan opsi database produksi.
+- `AI_PROMPTING.md` - lokasi system prompt, runtime prompt, alur AI, dan checklist review.
 - `MARKET_DATA.md` - penjelasan provider market data, cache, fallback, dan env.
 - `REPO_STRUCTURE.md` - peta folder repo dan aturan mana yang boleh/tidak boleh di-commit.
 - `QA_CHECKLIST.md` - checklist regresi sebelum demo, push, atau deploy.

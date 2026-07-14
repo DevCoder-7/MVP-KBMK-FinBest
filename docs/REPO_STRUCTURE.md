@@ -6,6 +6,7 @@ Repo ini memakai `App` sebagai root aplikasi Next.js. Struktur dibuat agar Verce
 .
 ├── docs/
 │   ├── DEPLOYMENT.md
+│   ├── AI_PROMPTING.md
 │   ├── MARKET_DATA.md
 │   ├── QA_CHECKLIST.md
 │   └── REPO_STRUCTURE.md
@@ -22,6 +23,8 @@ Repo ini memakai `App` sebagai root aplikasi Next.js. Struktur dibuat agar Verce
 │   ├── app/
 │   ├── components/
 │   └── lib/
+│       └── ai/
+│           └── prompts/
 ├── .env.example
 ├── package.json
 └── README.md
@@ -33,6 +36,7 @@ Repo ini memakai `App` sebagai root aplikasi Next.js. Struktur dibuat agar Verce
 - `src/components/modules` berisi modul utama: dashboard, portofolio, friction gate, AI Mentor, edukasi, dan profil.
 - `src/components/ui` berisi primitive UI shadcn/Radix.
 - `src/lib` berisi helper bisnis: auth, store, AI service, finance utils, dan market data adapter.
+- `src/lib/ai/prompts` adalah sumber kebenaran prompt engineering AI Mentor: system prompt dan penyusun konteks runtime.
 - `prisma` berisi schema dan seed demo.
 - `public` berisi aset publik yang dipakai runtime.
 

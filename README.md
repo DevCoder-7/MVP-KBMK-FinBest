@@ -58,7 +58,8 @@ npm run db:push   # Push Prisma schema ke database
 ├── src/
 │   ├── app/              # Next.js App Router dan API routes
 │   ├── components/       # UI, navigasi, dan modul fitur
-│   └── lib/              # Store, auth, market data, AI service
+│   └── lib/              # Domain service, provider, dan adapter data
+│       └── ai/prompts/   # Prompt engineering AI Mentor
 ├── .env.example          # Template environment variable
 ├── package.json
 └── README.md
@@ -69,6 +70,7 @@ Folder generated/local seperti `.next/`, `node_modules/`, `db/`, `docs/archive/`
 ## Dokumentasi
 
 - [Deployment](docs/DEPLOYMENT.md)
+- [AI Prompt Engineering](docs/AI_PROMPTING.md)
 - [Market Data](docs/MARKET_DATA.md)
 - [Struktur Repo](docs/REPO_STRUCTURE.md)
 - [QA Checklist](docs/QA_CHECKLIST.md)
